@@ -7,6 +7,12 @@
 > Base URL：`/api/v1`（健康检查例外：`/health/live`、`/health/ready` 不在 `/api/v1` 下）  
 > 关联：[系统架构](system-architecture.md)、[数据存储设计](data-storage-design.md)、[安全设计](security-design.md)
 
+> Bootstrap 开发检查例外：`GET /api/health` 返回存储健康状态；`GET /api/bootstrap/storage` 读取最近一条测试记录，`POST /api/bootstrap/storage` 写入并读回测试记录。后两者仅在 development 且监听 `127.0.0.1` 时可用，POST 校验配置的 Web Origin；这些测试接口不属于业务 API。`pnpm dev` 时 Vite 与 API 分别监听 5173 和配置的后端端口，浏览器通过 CORS 直接访问后端；正式同源部署原则不变。
+
+> 2026-11-02：登录标识改为内部账号。为兼容已有客户端和数据，本版请求和响应仍使用字段名 `email`；新建账号接受 3–64 位字母、数字、点、下划线、连字符，首位为字母或数字，统一转小写。登录额外兼容已有邮箱格式标识；这不要求使用或收取工作邮箱。
+
+> 首次部署可用 `GET /api/v1/setup/status` 检查状态，`POST /api/v1/setup/admin` 设置首个管理员。仅本机可初始化，需校验 Host 和 Origin；无用户及审计历史的判断、创建与审计在单事务完成。`POST /users` 可传初始 `password`，仍需认证、CSRF 和 `user:manage`；用户首次登录必须改密。未传密码时保留原随机临时密码行为。
+
 ## 1. 基本原则
 
 1. 资源化 URL，名词复数；动作用子资源或明确的 action 端点，不把动词塞进路径。
@@ -105,7 +111,7 @@ CORS：
 
 - `code` 稳定，前端按 code 做提示；`detail` 可调整。
 - 422 才带字段级 `errors`；500 不返回内部细节/堆栈/存储路径。
-- 401 统一“邮箱或密码错误”或“会话已失效”，不泄露账号存在性。
+- 401 统一“账号或密码错误”或“会话已失效”，不泄露账号存在性。
 - 403 页面级可说明缺少权限；具体资源越权用 404。
 
 ## 4. 状态码
@@ -182,6 +188,10 @@ CORS：
 - 支持 `Range`（P1 可选）；首版可整文件流式下载。
 - 版本不存在/无权 → 404。
 
+### 7.3 在线预览
+
+`GET /api/v1/documents/{id}/preview` 与 `GET /api/v1/documents/{id}/versions/{versionId}/preview` 复用下载的会话、文档 ACL、版本归属、文件路径和哈希校验，且在打开文件前后再次校验当前会话与 ACL。仅允许 `application/pdf`、`image/png`、`image/jpeg`；其他已授权文件返回 `415 FILE_TYPE_UNSUPPORTED`，无权或版本不属于文档仍返回 404。响应使用 `Content-Disposition: inline`、`Cache-Control: private, no-store`、`X-Content-Type-Options: nosniff` 与受限 CSP，并追加 `document.previewed` 审计。首版不提供 Office、Markdown、CSV 或 TXT 的在线渲染。文档列表的 `q` 同时匹配标题、说明、标签，以及当前版本的 UTF-8 TXT/MD/CSV 正文索引（每个文件最多 1MiB）；授权在匹配正文前执行，响应不含正文或命中片段。
+
 ## 8. 端点目录
 
 > 权限列为“权限码 + 资源守卫”；实际以服务层为准。所有端点默认要求登录，公开端点单独标注。
@@ -202,7 +212,7 @@ CORS：
 ```json
 {
   "data": {
-    "user": { "id": "...", "name": "李四", "email": "lisi@example.com" },
+    "user": { "id": "...", "name": "李四", "email": "lisi" },
     "organization": { "id": "...", "name": "示例组织", "timezone": "Asia/Shanghai" },
     "roles": ["member"],
     "permissions": ["workbench:read", "project:create", "..."],
@@ -318,44 +328,49 @@ PATCH /api/v1/tasks/{id}/board
 
 ### 8.5 OA 申请与审批
 
+2026-11-02：以下路径已接入；机器契约见 [OA OpenAPI](oa-approval.openapi.json)，验证证据与限制见 [OA 实现记录](../04-development/oa-approval-implementation.md)。所有变更均需会话、Origin 与 CSRF；资源越权统一 404。草稿仅本人可见；审计角色只获得正文、附件、意见、项目和时间范围均脱敏的摘要。
+
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
-| GET | `/applications` | `application:read:self` / `:all` | 我的/全部（按 scope） |
+| GET | `/applications` | `application:read:self` / `:all` / `:approve` / 审计摘要 | `view=mine/pending/involved/all`；先过滤权限再分页 |
 | POST | `/applications` | `application:create` | 创建草稿 |
 | GET | `/applications/{id}` | 申请人/审批人/`:all` | 详情 |
 | PATCH | `/applications/{id}` | 申请人 + draft | 编辑草稿；带 version |
-| DELETE | `/applications/{id}` | 申请人 + draft | 删除草稿 |
+| DELETE | `/applications/{id}` | 申请人 + draft | 软删除草稿；带 version；保留附件引用 |
 | POST | `/applications/{id}/submit` | `application:submit` | 提交；Idempotency-Key |
-| POST | `/applications/{id}/withdraw` | `application:withdraw` | 撤回 |
-| POST | `/applications/{id}/duplicate` | `application:create` | 复制为草稿 |
+| POST | `/applications/{id}/withdraw` | `application:withdraw` | 撤回；带 version/reason |
+| POST | `/applications/{id}/copy` | `application:create` + 本人 | 将驳回或撤回申请复制为新草稿 |
 | GET | `/applications/{id}/history` | 有权查看 | 审批时间线 |
-| POST | `/applications/{id}/attachments` | 申请人 + draft | 上传附件 |
-| DELETE | `/applications/{id}/attachments/{attachmentId}` | 申请人 + draft | 删除附件 |
-| GET | `/approvals` | `application:approve` | 待我审批 |
-| POST | `/applications/{id}/approve` | `application:approve` + 当前步骤 | 通过 |
-| POST | `/applications/{id}/reject` | `application:approve` + 当前步骤 | 驳回；意见必填 |
-| POST | `/applications/{id}/reassign` | `workflow:reassign` | 管理员转交 |
-| GET | `/workflow-templates` | `workflow:template:manage` | 模板列表 |
-| POST | `/workflow-templates` | 同上 | 创建草稿 |
-| PATCH | `/workflow-templates/{id}` | 同上 | 编辑草稿步骤 |
-| POST | `/workflow-templates/{id}/publish` | 同上 | 发布新版本 |
-| POST | `/workflow-templates/{id}/deactivate` | 同上 | 停用 |
+| POST | `/applications/{id}/attachments?version=N` | 申请人 + draft | 单文件 multipart；PDF/JPG/PNG ≤10MB |
+| DELETE | `/applications/{id}/attachments/{attachmentId}` | 申请人 + draft | 删除附件；带 version；事务维护 refCount |
+| GET | `/applications/{id}/attachments/{attachmentId}/download` | 完整正文访问权 | 鉴权下载；审计摘要不可下载 |
+| POST | `/applications/{id}/approve` | `application:approve` + 当前步骤 | 通过；带 version/comment |
+| POST | `/applications/{id}/reject` | `application:approve` + 当前步骤 | 驳回；带 version；意见 10–500 字 |
+| POST | `/applications/{id}/reassign` | 系统 org_admin + `workflow:reassign` | 管理员转交；带 version；原因 5–500 字 |
+| GET | `/workflow/templates` | 系统 org_admin + `workflow:template:manage` | 模板列表 |
+| POST | `/workflow/templates` | 同上 | 创建草稿 |
+| PATCH | `/workflow/templates/{id}` | 同上 | 编辑草稿步骤；带 version |
+| POST | `/workflow/templates/{id}/publish` | 同上 | 发布不可变新版本；带 version |
+| POST | `/workflow/templates/{id}/deactivate` | 同上 | 停用；带 version |
+| GET | `/workflow/templates/{id}/versions` | 同上 | 只读已发布版本 |
+| POST | `/workflow/templates/defaults` | 同上 | 显式创建五类缺失模板；不覆盖已配置类型 |
 
 创建草稿示例：
 
 ```json
 POST /api/v1/applications
 {
-  "type": "leave",
+  "applicationType": "leave",
   "title": "11 月 3-4 日年假",
   "formData": {
     "leaveType": "annual",
-    "startAt": "2026-11-03T01:00:00.000Z",
-    "endAt": "2026-11-04T10:00:00.000Z",
     "durationDays": 2,
-    "reason": "家庭事务",
+    "reason": "家中有重要事务需要请假处理",
     "handoverUserId": "0192..."
-  }
+  },
+  "startAt": "2026-11-03T01:00:00.000Z",
+  "endAt": "2026-11-04T10:00:00.000Z",
+  "projectId": null
 }
 ```
 
@@ -363,14 +378,14 @@ POST /api/v1/applications
 
 ```http
 POST /api/v1/applications/{id}/submit
-Idempotency-Key: 7b1e...
+Idempotency-Key: 7b1e672c-ae20-4de7-a7f8-42a8a88c65cc
 ```
 
 审批：
 
 ```json
 POST /api/v1/applications/{id}/approve
-{ "comment": "同意" }
+{ "version": 2, "comment": "同意" }
 ```
 
 转交：
@@ -379,6 +394,7 @@ POST /api/v1/applications/{id}/approve
 POST /api/v1/applications/{id}/reassign
 {
   "newApproverId": "0192...",
+  "version": 2,
   "reason": "原审批人出差，授权转交"
 }
 ```
@@ -395,24 +411,40 @@ POST /api/v1/applications/{id}/reassign
 
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
-| GET | `/organization` | `organization:directory:read` | 组织信息（脱敏） |
-| GET | `/organization/departments/tree` | `department:read` | 部门树 + 人数 |
+| GET | `/organization/directory` | `organization:directory:read` + scope | 已实现：脱敏通讯录 |
+| GET | `/organization/active-users` | `organization:directory:read` 或 `employee:read` | 已实现：全部在职账号最小选择器；不要求已有员工档案 |
+| GET | `/organization/departments` | `department:read` | 当前切片：扁平部门列表，含 parentId |
+| GET | `/organization/departments/tree` | `organization:directory:read` + scope | 已实现：当前数据范围的部门树 + 人数 |
 | POST | `/organization/departments` | `department:manage` | 创建 |
 | PATCH | `/organization/departments/{id}` | `department:manage` | 编辑 |
-| DELETE | `/organization/departments/{id}` | `department:manage` | 软删除 |
+| DELETE | `/organization/departments/{id}` | `department:manage` | 规划：软删除，跨模块引用检查完成前不可用 |
 | GET | `/organization/positions` | `position:read` | 岗位列表 |
 | POST | `/organization/positions` | `position:manage` | 创建 |
 | PATCH | `/organization/positions/{id}` | `position:manage` | 编辑 |
 | DELETE | `/organization/positions/{id}` | `position:manage` | 软删除 |
 | GET | `/organization/employees` | `employee:read` + scope | 员工档案列表 |
-| GET | `/organization/employees/{userId}` | 本人/`employee:read` | 详情 |
-| PATCH | `/organization/employees/{userId}` | 本人有限字段/`employee:manage` | 更新 |
+| GET | `/organization/employees/{id}` | `employee:read` + scope | 已实现：按员工档案 ID 读取详情 |
+| POST | `/organization/employees` | `employee:manage` + `all` | 已实现：创建档案并同步直属上级到 UserDocument |
+| PATCH | `/organization/employees/{id}` | `employee:manage` + `all` | 已实现：完整更新档案；版本校验 |
+| GET | `/roles` | `role:manage` | M0 兼容别名；与 `/organization/roles` 相同 |
 | GET | `/organization/roles` | `role:manage` | 角色列表 |
 | POST | `/organization/roles` | `role:manage` | 创建自定义角色 |
 | PATCH | `/organization/roles/{id}` | `role:manage` | 更新权限/范围 |
 | DELETE | `/organization/roles/{id}` | `role:manage` | 未被引用才可删 |
 | GET | `/organization/permissions` | `permission:read` | 权限目录 |
-| GET | `/organization/users/{userId}/effective-permissions` | `role:manage` | 有效权限预览 |
+| GET | `/organization/users/{id}/effective-permissions` | `role:manage` | 已实现：角色、权限并集和用户版本预览 |
+
+M0 已实现上述角色 CRUD、权限目录、有效权限预览与用户角色全量替换。准确的已实现子集、请求体和响应字段见 [m0-rbac.openapi.json](m0-rbac.openapi.json)；组织目录、员工和岗位的请求体及响应字段见 [organization-directory.openapi.json](organization-directory.openapi.json)。服务端在同一 LMDB 事务内重新读取 actor、会话、角色和权限，不能以请求开始时或前端缓存的权限结果完成写入。
+
+- `POST/PATCH/DELETE /organization/roles` 仅操作自定义角色；系统角色不可改名、改权限或删除。
+- 角色创建/更新的 `permissionCodes` 必须来自共享权限目录，且必须是操作者当前有效权限的子集；`dataScope` 只能取 `self`、`department`、`department_tree`、`all`。
+- `GET /organization/users/{id}/effective-permissions` 返回用户安全视图、`version`、`roleIds`、角色 code 与权限并集；调用方用该 `version` 进行后续替换，但该接口不计算多角色 `dataScope`。
+- `PUT /users/{id}/roles` 是全量替换，不接受空数组或重复 roleId；事务内校验角色存在、禁止自改、限制管理员角色授予/撤销并防止 `system_admin` 授予 `org_admin`，追加 `user.roles.updated`、`role.assigned`、`role.revoked` 审计。自改角色一律以 403 拒绝。账号停用接口在独立事务内重新校验操作者、保护最后一个活跃 `org_admin`，并撤销目标会话；角色替换路径仍依赖禁止自改与管理员角色授予/撤销约束，未另行实现组织管理员计数器。
+- 角色权限变更在下一次请求重新加载后生效；不得把前端权限列表当作安全边界。
+
+部门 API 的 POST/PATCH 接受完整字段 `{parentId,name,code,managerId,description,sortOrder}`，PATCH 另带正整数 `version`；可空字段必须显式传 `null`。返回 `{data}`，GET 返回扁平数组，POST 成功 201、PATCH 成功 200。部门名称同父级唯一、非空编码全局唯一；循环、超过 10 层、无效字段返回 422，重复或版本冲突返回 409，不存在的上级/负责人返回 404。变更请求需要登录、CSRF 和 Origin 校验，所有操作在事务内重新校验会话、活跃角色及权限，并仅允许授予对应权限的角色具有 `all` 范围；较窄范围暂不支持并返回 403。写入与审计同事务。具体契约见 [部门 OpenAPI](organization-department.openapi.json)。
+
+`dataScope` 已有按权限合并的范围集合计算；部门服务当前仅支持授予相应权限的 `all` 范围，未实现部门树过滤。其他业务资源查询不能据此视为已执行范围授权。
 
 ### 8.8 系统
 
@@ -432,17 +464,16 @@ POST /api/v1/applications/{id}/reassign
 | GET | `/settings` | `setting:manage` | 系统配置 |
 | PATCH | `/settings` | `setting:manage` | 部分更新 |
 
-创建用户：
+上表是 R1 用户管理目标。M0 当前实现 `GET /users`、`POST /users`、上节的有效权限预览、`PUT /users/{id}/roles`，以及 `POST /users/{id}/disable` 的基础停用闭环。停用要求版本号，执行认证/CSRF/`user:manage` 校验，在单个写事务内更新状态、撤销目标全部活跃会话并追加审计，同时保护最后一个活跃 `org_admin`。`GET/PATCH /users/{id}`、启用、重置密码和强制下线仍无路由或服务闭环；当前审批人转交、项目 owner/未完成任务等离职依赖校验需待对应业务模块实现。因此用户生命周期仍未完整交付。
+
+M0 创建用户仅接受初始单角色：
 
 ```json
 POST /api/v1/users
 {
   "name": "王五",
-  "email": "wangwu@example.com",
-  "departmentId": "0192...",
-  "positionId": "0192...",
-  "managerId": "0192...",
-  "roleIds": ["0192..."]
+  "email": "wangwu",
+  "roleCode": "member"
 }
 ```
 
@@ -468,6 +499,8 @@ POST /api/v1/users
 | PATCH | `/documents/{id}` | `document:update` + ACL edit | 元数据；带 version |
 | DELETE | `/documents/{id}` | `document:delete` + ACL manage | 软删除 |
 | GET | `/documents/{id}/download` | ACL view | 下载当前/指定版本 |
+| GET | `/documents/{id}/preview` | ACL view | 仅 PDF/PNG/JPEG 的受鉴权新标签页预览 |
+| GET | `/documents/{id}/versions/{versionId}/preview` | ACL view | 指定 PDF/PNG/JPEG 版本预览 |
 | GET | `/documents/{id}/versions` | ACL view | 版本列表 |
 | POST | `/documents/{id}/versions` | `document:version:create` + ACL edit | 上传新版本 |
 | GET | `/documents/{id}/permissions` | ACL manage | ACL 列表 |
@@ -492,10 +525,35 @@ visibility=restricted
 tagIds=0192...,0192...
 ```
 
+### 8.10 经营分析
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/analytics/project-completion` | `analytics:read:project` 或 `analytics:read:all`，并需项目/任务读取权限 | 当前快照；支持项目创建时间筛选、逾期率和分页逾期清单 |
+| GET | `/analytics/project-completion/export` | 同项目完成分析 | 以 CSV 导出当前已授权项目汇总；最多 10,000 行；成功写审计 |
+| GET | `/analytics/department-workload` | 对应分析权限 + `project:read` + `task:read` | 按允许部门聚合组织可见项目任务，不输出任务/项目明细 |
+
+项目完成响应包括按项目明细、按有效任务总数加权的汇总完成率，以及按组织时区计算的逾期率和分页逾期任务清单。逾期定义为截止日期早于组织本地当前日期的未完成任务；当天截止不算逾期。取消任务从有效任务分母排除；软删除任务不计入。私有项目仍执行项目成员守卫。该项目完成报表对部门范围返回 403；部门工作量应改用下述独立聚合端点。CSV 导出字段仅包含项目状态和聚合任务指标，采用 UTF-8 BOM、CRLF、公式前缀防护、`Cache-Control: no-store`；未实现 XLSX、异步生成或短时下载链接。部门工作量只统计组织可见项目中分配给 active 内部账号的任务，并依分析权限的角色范围并集执行 `department`、`department_tree`、`all`；仅 `self` 返回 403，越权 `departmentId` 返回 404。它不会返回私有项目、任务或负责人明细。历史趋势、合同/财务分析仍未实现。机器契约见 [项目 OpenAPI](analytics-project.openapi.json)、[导出 OpenAPI](analytics-export.openapi.json) 和 [部门工作量 OpenAPI](analytics-department-workload.openapi.json)；实现证据见 [项目分析](../04-development/project-analytics-service.md)、[CSV 导出](../04-development/analytics-export-implementation.md) 和 [部门工作量](../04-development/department-workload-analytics.md)。
+
+### 8.11 日历与会议
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/calendar/participants` | `organization:directory:read` | 在职内部账号候选，最多 50 人 |
+| GET | `/calendar/events` | `calendar:read` + 事件/项目守卫 | 在明确 `from`/`to` 区间内查询日程 |
+| POST | `/calendar/events` | `calendar:create` | 创建个人日程、里程碑或会议；返回隐私保护的冲突提示 |
+| GET | `/calendar/events/{id}` | `calendar:read` + 事件/项目守卫 | 日程详情 |
+| PATCH | `/calendar/events/{id}` | `calendar:update` + 所有者守卫 | 带 version 更新日程 |
+| DELETE | `/calendar/events/{id}` | `calendar:delete` + 所有者守卫 | 软删除；带 version |
+| POST | `/calendar/events/{id}/response` | `calendar:respond` + 受邀人守卫 | 接受、拒绝或暂定参加；带 version |
+
+会议最多邀请 50 名 active 内部账号；关联项目时，组织者和参与人必须是有效项目成员，私有项目 ACL 不可由管理员角色绕过。冲突仅返回参与人和时间区间，不泄露冲突日程的 ID、标题、描述或地点。提醒仅支持提前 5/15/30/60 分钟：服务启动立即扫描，此后每分钟扫描一次，并在每次投递前重新验证账号、日历权限和项目关系。唯一投递标记、站内通知与系统审计在同一事务写入；停机期间错过且事件已开始的提醒不补发。详见 [日历 OpenAPI](calendar.openapi.json) 与 [日历模块说明](calendar-module.md)。
+
 ## 9. 权限与数据过滤
 
 - 每个端点声明权限码；服务层执行资源守卫。
-- 列表查询先按权限码判断，再按资源关系/数据范围过滤；禁止先查全量再前端过滤。
+- R1 列表查询先按权限码判断，再按资源关系/数据范围过滤；禁止先查全量再前端过滤。该原则不能被当前 M0 的基础角色管理端点视为已完成的业务范围过滤。
+- `dataScope` 的有效值固定为 `self`、`department`、`department_tree`、`all`；当前部门服务仅支持对应权限的 `all` 范围，较窄范围过滤尚未实现。
 - 审批端点额外校验“当前步骤审批人”，仅有 `application:approve` 不够。
 - 文档端点额外校验 ACL（owner/role/department/project/org）。
 - 管理员端点也写审计；`system_admin` 默认不读业务正文。
@@ -526,7 +584,7 @@ tagIds=0192...,0192...
 | `IDEMPOTENCY_KEY_REUSED` | 409 | 同 key 不同请求体 |
 | `FILE_TOO_LARGE` | 413 | 文件超限 |
 | `FILE_TYPE_UNSUPPORTED` | 415 | 类型不允许 |
-| `USER_EMAIL_TAKEN` | 409 | 邮箱重复 |
+| `USER_EMAIL_TAKEN` | 409 | 账号重复 |
 | `LAST_ADMIN_PROTECTED` | 409 | 最后一个管理员 |
 | `CURRENT_APPROVER_ACTIVE` | 409 | 停用当前审批人前需转交 |
 | `RATE_LIMITED` | 429 | 限流 |
@@ -537,7 +595,8 @@ tagIds=0192...,0192...
 
 ## 11. OpenAPI 与契约
 
-- 使用 `fastify-type-provider-zod` 从 Zod schema 生成 OpenAPI 3.1。
+- 已实现 M0 RBAC 子集的可审查工件为 [m0-rbac.openapi.json](m0-rbac.openapi.json)，包含角色 CRUD、权限目录、有效权限预览、用户角色替换和创建用户的精确契约；它明确 `dataScope` 未执行，且不覆盖完整 R1 API。
+- R1 后续计划使用 `fastify-type-provider-zod` 从 Zod schema 生成完整 OpenAPI 3.1；M0 尚未引入该依赖或自动生成流水线，当前 RBAC 工件应与 `app/shared/src/schemas.ts` 和服务端路由同步审查。
 - 每个端点必须有 `summary`、`description`、`tags`、`security`、`responses`。
 - `/api/docs` 仅开发/内网；生产默认关闭或加管理员认证。
 - `app/shared` 导出请求/响应 schema、枚举、权限码；前端直接复用类型。
@@ -587,3 +646,15 @@ tagIds=0192...,0192...
 
 
 
+
+### 当前项目与任务 API 的已实现子集（2026-11-02）
+
+上文第 8.3–8.4 节是目标端点表，并非全部已交付。当前实际实现 `GET/POST /projects`、`GET/PATCH/DELETE /projects/{id}`、`POST /projects/{id}/transition`、`GET/POST /projects/{id}/members`、`PATCH/DELETE /projects/{id}/members/{userId}`、`POST /projects/{id}/transfer-owner`、`GET/POST /projects/{id}/tasks` 和 `GET/PATCH/DELETE /tasks/{id}`，详见 [project-task.openapi.json](project-task.openapi.json) 和共享 Zod schema。项目和任务列表支持 `page`、`pageSize`（默认 1、20；最大 100），项目列表默认不显示归档。项目/任务详细筛选、评论与看板已提供基础端点，通知和筛选视图拖拽语义尚未实现。
+
+创建项目自动建立唯一 owner；项目仅在 `active` 状态允许新建任务。短键唯一、任务编号在事务内递增，任务写入、项目计数与审计同事务；状态流转记录版本，暂停和取消需原因。权限码、有效会话和项目成员关系在写事务内重验；私有项目非成员返回 404，组织可见项目非成员只读。移除成员要求成员 `version`、不能移除 owner、且不能存在分配给该成员的未完成任务；转让请求为 `{ "userId": "新负责人ID", "version": 项目版本 }`，新负责人必须为活跃项目成员。账号停用前在同一事务检查目标用户是否仍为项目 owner。
+
+本子集尚未实现文档所述全部业务规则或功能，不能据此认定 M1 已完成或 M0 已验收通过。该 OpenAPI 使用默认会话 Cookie 名称，部署可配置其他名称。
+
+项目短键在所有历史项目（含软删除项目）中永久唯一；创建事务检查主库历史文档，避免删除后重新使用短键造成历史任务编号冲突。项目删除仅限项目成员中的组织管理员，且无未完成任务；角色修改不能直接变更 owner。
+
+当前看板移动通过 `PATCH /tasks/{id}/board` 接收 `{version,targetStatus,targetIndex,progress?}`；目标索引按完整列计算，返回移动任务及受影响完整列。同一事务校验状态/进度并将源列及目标列重排为 1024 的倍数。任务评论通过 `/tasks/{id}/comments` 和 `/comments/{id}` 读写；评论不接受原始 HTML，作者可在 15 分钟内编辑，删除返回 `removedAt` 和空 `content`，界面显示“评论已删除”。对他人评论删除必须具有审核权限并提供理由。评论通知及按筛选结果相邻位置拖拽尚未实现，禁止描述为完整看板交付。

@@ -1,0 +1,25 @@
+import { z } from 'zod';
+import { sharedNotificationSchema, sharedCounterSchema, sharedIdempotencySchema } from '../core/shared-records.js';
+
+const envelope = { id: z.string().min(1), schemaVersion: z.literal(1), version: z.number().int().positive(), createdAt: z.string().datetime(), updatedAt: z.string().datetime(), deletedAt: z.string().datetime().nullable() };
+export const applicationSchema = z.object({ ...envelope, type: z.literal('application'), applicationNo: z.string().nullable(), applicationType: z.enum(['leave', 'travel', 'field', 'seal', 'general']), title: z.string().min(2).max(100), formSchemaVersion: z.number().int().positive(), formData: z.record(z.unknown()), startAt: z.string().datetime().nullable(), endAt: z.string().datetime().nullable(), projectId: z.string().min(1).nullable().optional(), status: z.enum(['draft', 'pending', 'approved', 'rejected', 'withdrawn']), applicantId: z.string().min(1), departmentId: z.string().nullable(), submittedAt: z.string().datetime().nullable(), completedAt: z.string().datetime().nullable() }).strict();
+export const instanceSchema = z.object({ ...envelope, type: z.literal('workflow_instance'), templateId: z.string().min(1), templateVersionId: z.string().min(1), applicationId: z.string().min(1), status: z.enum(['running', 'approved', 'rejected', 'withdrawn']), currentStepNo: z.number().int().positive(), startedAt: z.string().datetime(), completedAt: z.string().datetime().nullable(), recordSeq: z.number().int().nonnegative(), recordHash: z.string().length(64).nullable() }).strict();
+export const stepSchema = z.object({ ...envelope, type: z.literal('workflow_step'), instanceId: z.string().min(1), stepNo: z.number().int().min(1).max(10), name: z.string().min(1).max(50), approverType: z.enum(['user', 'department_manager', 'direct_manager']), approverId: z.string().min(1), status: z.enum(['waiting', 'active', 'approved', 'rejected', 'cancelled']), activatedAt: z.string().datetime().nullable(), completedAt: z.string().datetime().nullable() }).strict();
+export const recordSchema = z.object({ ...envelope, type: z.literal('approval_record'), instanceId: z.string().min(1), applicationId: z.string().min(1), stepId: z.string().min(1), seq: z.number().int().positive(), action: z.enum(['approve', 'reject', 'withdraw', 'reassign']), operatorId: z.string().min(1), comment: z.string().max(500), fromApproverId: z.string().nullable(), toApproverId: z.string().nullable(), previousHash: z.string().length(64).nullable(), hash: z.string().length(64) }).strict();
+export const notificationSchema = sharedNotificationSchema;
+export const templateStepSchema = z.object({ stepNo: z.number().int().min(1).max(10), name: z.string().min(1).max(50), approverType: z.enum(['user', 'department_manager', 'direct_manager']), userId: z.string().min(1).nullable() }).strict();
+export const templateSchema = z.object({ ...envelope, type: z.literal('workflow_template'), name: z.string().min(2).max(50), applicationType: z.enum(['leave', 'travel', 'field', 'seal', 'general']), status: z.enum(['draft', 'active', 'inactive']), activeVersionId: z.string().nullable(), lastVersionNo: z.number().int().nonnegative(), draftSteps: z.array(templateStepSchema).min(1).max(10) }).strict();
+export const templateVersionSchema = z.object({ ...envelope, type: z.literal('workflow_version'), templateId: z.string().min(1), versionNo: z.number().int().positive(), steps: z.array(templateStepSchema).min(1).max(10), createdBy: z.string().min(1), publishedAt: z.string().datetime() }).strict();
+export const idempotencySchema = sharedIdempotencySchema;
+export const counterSchema = sharedCounterSchema;
+export const attachmentSchema = z.object({ ...envelope, type: z.literal('application_attachment'), applicationId: z.string().min(1), fileId: z.string().min(1), fileName: z.string().min(1), mime: z.string().min(1), size: z.number().int().positive(), sha256: z.string().length(64), uploadedBy: z.string().min(1) }).strict();
+export type Application = z.infer<typeof applicationSchema>;
+export type WorkflowInstance = z.infer<typeof instanceSchema>;
+export type WorkflowStep = z.infer<typeof stepSchema>;
+export type ApprovalRecord = z.infer<typeof recordSchema>;
+export type Notification = z.infer<typeof notificationSchema>;
+export type WorkflowTemplate = z.infer<typeof templateSchema>;
+export type WorkflowVersion = z.infer<typeof templateVersionSchema>;
+export type WorkflowIdempotency = z.infer<typeof idempotencySchema>;
+export type WorkflowCounter = z.infer<typeof counterSchema>;
+export type ApplicationAttachment = z.infer<typeof attachmentSchema>;

@@ -54,7 +54,7 @@ type Actor = {
 | 工作台 | `workbench:read` | 查看工作台 | 全部 |
 | 项目 | `project:create` | 创建项目 | member/org_admin |
 | 项目 | `project:read` | 读取项目（受资源过滤） | 全部 |
-| 项目 | `project:read:all` | 读取全部项目（治理） | org_admin |
+| 项目 | `project:read:all` | 治理范围内读取项目，仍受项目隐私守卫限制 | org_admin |
 | 项目 | `project:update` | 编辑项目 | 项目 owner/manager + org_admin |
 | 项目 | `project:archive` | 归档/取消项目 | owner + org_admin |
 | 项目 | `project:delete` | 软删除项目 | org_admin |
@@ -99,8 +99,13 @@ type Actor = {
 | 文档 | `document:category:manage` | 分类管理 | org_admin |
 | 文档 | `document:tag:manage` | 标签管理 | org_admin |
 | 文档 | `document:manage:all` | 管理全部文档 | org_admin |
-| 日程 P1 | `calendar:read` / `calendar:manage` | 日历 | P1 |
-| 分析 P1 | `analytics:read:project` / `:department` / `:all` | 报表 | P1 |
+| 日程 | `calendar:read` | 读取本人/受邀/项目成员可见日程 | member/org_admin（资源守卫） |
+| 日程 | `calendar:create` | 创建个人、项目日程或会议 | member/org_admin |
+| 日程 | `calendar:update` | 更新本人日程或本人可管理项目日程 | member/org_admin（组织者/项目角色守卫） |
+| 日程 | `calendar:delete` | 软删除本人或本人可管理项目日程 | member/org_admin（组织者/项目角色守卫） |
+| 日程 | `calendar:invite` | 邀请有效内部账号参加会议 | member/org_admin |
+| 日程 | `calendar:respond` | 响应分配给本人的会议邀请 | member/org_admin |
+| 分析 | `analytics:read:project` / `analytics:read:all` | 当前授权项目/全量项目完成分析 | 按项目与任务读取权限及项目隐私守卫过滤 |
 
 > “内置角色默认”只是种子权限；自定义角色可组合权限码，但受第 9 节提权限制。  
 > 项目角色（owner/manager/member/viewer）不是权限码，而是在 `project:update` 等检查后的资源守卫。
@@ -118,7 +123,7 @@ type Actor = {
 | `member` | 普通成员 | workbench、project create/read、task create/read/update/comment、application create/read self/submit/withdraw/approve、directory、document read/create | `self` |
 | `org_admin` | 组织管理员 | 全部业务与管理权限 | `all` |
 | `system_admin` | 系统管理员 | user/session/login/audit/setting、permission read | `all`（仅管理数据） |
-| `auditor` | 审计员 | login/audit/analytics read、permission read | `all`（只读） |
+| `auditor` | 审计员 | login/audit、permission read | `all`（只读） |
 
 规则：
 
@@ -131,6 +136,16 @@ type Actor = {
 
 ## 5. 数据范围
 
+> **契约审计（2026-11-01）**：代码与存储 schema 的 canonical 枚举为 `self`、`department`、`department_tree`、`all`（见 `app/shared/src/permissions.ts` 与 `app/backend/src/modules/core/models.ts`）。产品文档中的 `organization` 已统一修正为 `all`，不得作为请求或角色文档中的有效值。当前 M0 尚无部门/员工实体和资源查询，因此 `department`/`department_tree` 只能作为角色契约值保存，不能据此声称已实现部门过滤。
+
+2026-11-02 用户确认：仅合并授予对应权限码的活跃角色范围，并取其并集；没有授予该权限的角色不得扩大范围。数据范围不能绕过项目隐私、文档 ACL 等资源守卫。当前只实现范围集合计算，尚未实现资源查询过滤，不能据此宣称 M0 门禁已通过。
+
+在部门范围及其授权关系实现前，采用保守的角色授予限制：仅组织管理员可创建、修改或分配 `department`、`department_tree` 和 `all` 范围角色；其他角色管理员仅可授予 `self`，且每个权限码须由本人具有 `self` 或 `all` 范围的角色授予，仍须满足权限码子集约束。此限制不改变有效权限的数据范围并集规则。审计列表暂仅支持 `audit:read` 的 `all` 范围，其他范围返回 403，不能因为其他权限具有 `all` 而扩大审计范围。完整数据范围过滤仍待实现及验收。
+
+用户列表、创建与停用目前要求 `user:manage` 的 `all` 范围；用户权限查看及角色分配要求 `role:manage` 的 `all` 范围。未实现的其他范围返回 403。停用账号须在同一事务中确认其不是未删除项目的负责人，未接入检查器时拒绝停用。
+
+项目完成分析要求 `analytics:read:project` 或 `analytics:read:all`，并同时要求 `project:read`/`project:read:all` 与 `task:read`。当前只实现项目成员/负责人和具备 `project:read:all` 的全量范围；部门/部门树范围在项目完成分析中仍返回 403，不得把当前项目快照解读为部门指标或历史趋势。部门工作量是独立端点，仅聚合组织可见项目中任务当前负责人所属部门；它按授予分析权限码的角色并集支持 `department`、`department_tree` 和 `all`，`self` 明确返回 403，且从不返回私有项目或任务明细。
+
 ```text
 self              → 仅本人创建/被分配/申请的资源
 department        → 本人主部门
@@ -142,7 +157,7 @@ all               → 全部署
 
 | 资源 | 是否用 data_scope | 额外资源守卫 |
 |---|---|---|
-| 项目/任务 | **否**（除 `project:read:all`） | 项目成员、项目可见性、项目角色 |
+| 项目/任务 | 可能用于治理查询的范围过滤，但不能扩大项目访问 | 项目成员、项目可见性、项目角色；私有项目仅成员 |
 | 申请 | 是（仅 `application:read:all`） | 本人、审批人、org_admin |
 | 员工档案 | 是（`employee:read`） | 本人、部门范围 |
 | 文档 | **否** | ACL、项目继承、org_admin |
@@ -196,27 +211,28 @@ type Decision = {
 
 ```text
 canReadProject(actor, project):
-  // 单组织，无 org 校验
-  && (
-       project.visibility == 'all'
-       || isMember(actor, project)
-       || actor.permissions.has('project:read:all')
-     )
+  actor.status == 'active'
+  && hasApplicableReadPermission(actor, project)
+  && (project.visibility == 'organization' || isMember(actor, project))
 ```
 
-- `project:read:all` 只给 org_admin；自定义角色如获得该权限，等同全组织项目可见，需高风险确认。
+- 私有项目的非成员一律不可访问，具体资源请求返回 404；组织管理员、`project:read:all` 和任何数据范围均不能绕过成员守卫。项目列表、任务及其他项目关联资源也必须执行该守卫。
+- `project:read:all` 默认只给 org_admin；自定义角色获此权限需高风险确认，但它不赋予非成员访问私有项目的能力。
+- `organization` 项目的非成员只能读取；写操作仍需项目成员身份及对应权限、角色和状态守卫。
 - 归档项目仍可读（有权限），但默认列表过滤。
-- 软删除项目仅审计/管理员可见。
+- 软删除项目的审计或管理查询也不得绕过私有项目成员守卫。
 
 ### 7.2 项目写
 
 | 动作 | 权限码 | 资源守卫 |
 |---|---|---|
-| 编辑基本信息 | `project:update` | member role owner/manager 或 `project:read:all` + org_admin |
+| 编辑基本信息 | `project:update` | 项目成员，且 role 为 owner/manager 或为 org_admin |
 | 管理成员 | `project:member:manage` | owner/manager；manager 不能动 owner/其他 manager |
 | 转让 owner | `project:owner:transfer` | 当前 owner 或 org_admin |
 | 归档/取消 | `project:archive` | owner 或 org_admin |
 | 删除 | `project:delete` | org_admin；且无未完成任务 |
+
+上述各项均先执行项目访问守卫；所有写操作要求项目成员身份，管理员权限不能绕过私有项目成员限制或组织可见项目非成员只读限制。
 
 ### 7.3 任务
 
@@ -273,7 +289,7 @@ effectiveDocumentLevel(actor, doc):
 
 ### 8.3 通讯录
 
-- 全员可读：姓名、部门、岗位、工作邮箱。
+- 全员可读：姓名、部门、岗位、内部账号。
 - 手机号：本人、org_admin、system_admin（账号用途）可见；其他人不可见。
 - 员工列表（含筛选/导出）需要 `employee:read` + data_scope；普通成员只能看通讯录字段，不能看完整档案。
 
@@ -346,7 +362,7 @@ function visibleTo(actor: Actor, query: Query) {
 
 1. 4 个内置角色 × 主要资源/动作的允许/拒绝。
 2. 项目 4 个项目角色 × 项目/任务动作。
-3. 项目可见性 `private/all` × 成员/非成员。
+3. 项目可见性 `private/organization` × 成员/非成员，含 org_admin 和 `project:read:all` 的非成员拒绝用例。
 4. 文档 `all/project/restricted` × owner/ACL 用户/角色/部门/无关用户。
 5. 申请 申请人/当前审批人/历史审批人/部门负责人/org_admin/auditor。
 6. 数据范围 self/department/department_tree/all。
@@ -371,3 +387,5 @@ function visibleTo(actor: Actor, query: Query) {
 
 
 
+
+2026-11-02：新初始化数据的内置 `member` 角色增加 `project:update`、`project:archive`、`project:member:manage`、`project:owner:transfer`、`task:assign`、`task:delete` 和 `task:comment:moderate`，使普通成员成为 owner 或 manager 后能够管理其项目。权限码本身不赋予任意项目的管理权；服务端仍要求有效会话、项目可见性、成员角色和项目状态，viewer 即使拥有这些权限码也不可写。`project:delete`、`project:read:all` 等未向 member 开放。已存在的数据目录不会自动重写系统角色，因此旧内置 member 权限可能缺失以上代码，需要后续经审查的升级方案；本次不迁移或修改现有数据。

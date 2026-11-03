@@ -1,0 +1,51 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "审批耗时经营分析 API",
+    "version": "0.1.0",
+    "description": "审批耗时按自然小时计算，仅允许同时具备 analytics:read:all 与 application:read:all 且两个权限数据范围均为 all 的调用者。只统计已完成的 approved/rejected/withdrawn 申请；不汇总调用者无权查看的申请。"
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "paths": {
+    "/analytics/approval-timing": {
+      "get": {
+        "summary": "查询审批耗时中位数与 P90",
+        "security": [{ "session": [] }],
+        "parameters": [
+          { "name": "applicationType", "in": "query", "schema": { "type": "string", "enum": ["leave", "travel", "field", "seal", "general"] } },
+          { "name": "departmentId", "in": "query", "schema": { "type": "string", "minLength": 1, "maxLength": 64 } },
+          { "name": "templateId", "in": "query", "schema": { "type": "string", "minLength": 1, "maxLength": 64 } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ApprovalTimingReport" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "403": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "session": { "type": "apiKey", "in": "cookie", "name": "collab_session" } },
+    "schemas": {
+      "ApprovalTimingDimension": { "type": "object", "required": ["id", "name"], "properties": { "id": { "type": "string" }, "name": { "type": "string" } } },
+      "ApprovalTimingReport": {
+        "type": "object",
+        "required": ["generatedAt", "filter", "sampleCount", "medianHours", "p90Hours", "options"],
+        "properties": {
+          "generatedAt": { "type": "string", "format": "date-time" },
+          "filter": { "type": "object", "additionalProperties": false, "properties": { "applicationType": { "type": "string" }, "departmentId": { "type": "string" }, "templateId": { "type": "string" } } },
+          "sampleCount": { "type": "integer", "minimum": 0 },
+          "medianHours": { "type": ["number", "null"], "minimum": 0 },
+          "p90Hours": { "type": ["number", "null"], "minimum": 0 },
+          "options": { "type": "object", "required": ["applicationTypes", "departments", "templates"], "properties": { "applicationTypes": { "type": "array", "items": { "type": "string" } }, "departments": { "type": "array", "items": { "$ref": "#/components/schemas/ApprovalTimingDimension" } }, "templates": { "type": "array", "items": { "$ref": "#/components/schemas/ApprovalTimingDimension" } } } }
+        }
+      },
+      "Problem": { "type": "object", "properties": { "type": { "type": "string" }, "title": { "type": "string" }, "status": { "type": "integer" }, "detail": { "type": "string" }, "code": { "type": "string" }, "requestId": { "type": "string" } } }
+    },
+    "responses": {
+      "ApprovalTimingReport": { "description": "审批耗时报告", "content": { "application/json": { "schema": { "type": "object", "required": ["data"], "properties": { "data": { "$ref": "#/components/schemas/ApprovalTimingReport" } } } } } },
+      "Problem": { "description": "problem+json 错误", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+    }
+  }
+}

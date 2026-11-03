@@ -1,0 +1,127 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Calendar API",
+    "version": "1.0.0",
+    "description": "日历、项目日程和会议邀请 API。所有端点位于 /api/v1，使用会话 Cookie；已认证变更请求必须携带 CSRF token 和 Origin。"
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "security": [{ "sessionCookie": [] }],
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": { "type": "apiKey", "in": "cookie", "name": "collab_session" }
+    },
+    "schemas": {
+      "Participant": {
+        "type": "object",
+        "required": ["userId", "response", "respondedAt"],
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "response": { "enum": ["pending", "accepted", "declined", "tentative"] },
+          "respondedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "required": ["id", "version", "ownerId", "projectId", "kind", "title", "description", "location", "startAt", "endAt", "reminderMinutes", "participants", "createdAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "version": { "type": "integer", "minimum": 1 },
+          "ownerId": { "type": "string", "format": "uuid" },
+          "projectId": { "type": ["string", "null"], "format": "uuid" },
+          "kind": { "enum": ["personal", "milestone", "meeting"] },
+          "title": { "type": "string", "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "location": { "type": "string", "maxLength": 160 },
+          "startAt": { "type": "string", "format": "date-time" },
+          "endAt": { "type": "string", "format": "date-time" },
+          "reminderMinutes": { "type": ["integer", "null"], "enum": [5, 15, 30, 60, null] },
+          "participants": { "type": "array", "maxItems": 50, "items": { "$ref": "#/components/schemas/Participant" } },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Input": {
+        "type": "object",
+        "required": ["kind", "title", "startAt", "endAt"],
+        "properties": {
+          "kind": { "enum": ["personal", "milestone", "meeting"] },
+          "projectId": { "type": ["string", "null"], "format": "uuid" },
+          "title": { "type": "string", "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "location": { "type": "string", "maxLength": 160 },
+          "startAt": { "type": "string", "format": "date-time" },
+          "endAt": { "type": "string", "format": "date-time" },
+          "reminderMinutes": { "type": ["integer", "null"], "enum": [5, 15, 30, 60, null] },
+          "participantIds": { "type": "array", "maxItems": 50, "items": { "type": "string", "format": "uuid" } }
+        }
+      },
+      "Conflict": {
+        "type": "object",
+        "required": ["userId", "startAt", "endAt"],
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "startAt": { "type": "string", "format": "date-time" },
+          "endAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Version": {
+        "type": "object",
+        "required": ["version"],
+        "properties": { "version": { "type": "integer", "minimum": 1 } }
+      }
+    }
+  },
+  "paths": {
+    "/calendar/participants": {
+      "get": {
+        "summary": "搜索可邀请内部账号",
+        "description": "需要 organization:directory:read；仅返回 active 账号的 id/name。",
+        "parameters": [{ "in": "query", "name": "search", "schema": { "type": "string", "maxLength": 100 } }],
+        "responses": { "200": { "description": "候选人" } }
+      }
+    },
+    "/calendar/events": {
+      "get": {
+        "summary": "读取个人/项目日历",
+        "description": "需要 calendar:read；按项目 ACL 过滤；查询跨度最多 93 天。范围采用 UTC ISO 8601。后台调度器每分钟投递仍处于提醒窗口内的提醒；本查询也会在同一事务中幂等补扫当前用户的到期提醒。",
+        "parameters": [
+          { "in": "query", "name": "from", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "in": "query", "name": "to", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "in": "query", "name": "projectId", "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "事件与组织时区" } }
+      },
+      "post": {
+        "summary": "创建日程",
+        "description": "需要 calendar:create；项目日程还要求 project:read 和项目成员身份；participants 非空还要求 calendar:invite。响应含不暴露冲突标题/事件 ID 的时段提示。",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Input" } } } },
+        "responses": { "201": { "description": "已创建" } }
+      }
+    },
+    "/calendar/events/{id}": {
+      "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+      "get": { "summary": "读取日程详情", "responses": { "200": { "description": "日程详情" }, "404": { "description": "不存在或无权访问" } } },
+      "patch": {
+        "summary": "更新日程",
+        "description": "需要 calendar:update、组织者或项目 owner/manager 身份；携带 version 乐观锁。",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/Input" }, { "$ref": "#/components/schemas/Version" }] } } } },
+        "responses": { "200": { "description": "更新结果与冲突时段" }, "409": { "description": "版本冲突" } }
+      },
+      "delete": {
+        "summary": "软删除日程",
+        "description": "需要 calendar:delete 和资源写权限。请求正文携带 version。",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Version" } } } },
+        "responses": { "200": { "description": "已软删除" }, "404": { "description": "不存在或无权访问" } }
+      }
+    },
+    "/calendar/events/{id}/response": {
+      "post": {
+        "summary": "响应会议邀请",
+        "description": "需要 calendar:respond；仅被邀请的当前用户可接受、拒绝或标为待定。",
+        "parameters": [{ "in": "path", "name": "id", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/Version" }, { "type": "object", "required": ["response"], "properties": { "response": { "enum": ["accepted", "declined", "tentative"] } } }] } } } },
+        "responses": { "200": { "description": "更新后的会议" }, "404": { "description": "邀请不存在或无权访问" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@collab/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependenciesMeta": {
+    "@collab/shared": {
+      "injected": true
+    }
+  },
+  "dependencies": {
+    "@collab/shared": "workspace:*",
+    "@fastify/cookie": "11.1.5",
+    "@fastify/cors": "11.3.1",
+    "@fastify/helmet": "13.2.0",
+    "@fastify/multipart": "10.1.6",
+    "@fastify/rate-limit": "11.2.1",
+    "@fastify/static": "10.1.8",
+    "@node-rs/argon2": "2.2.2",
+    "fastify": "5.12.7",
+    "lmdb": "3.5.9",
+    "pino": "10.4.0",
+    "pino-roll": "4.0.0",
+    "uuid": "14.0.3",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15"
+  }
+}

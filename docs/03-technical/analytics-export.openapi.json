@@ -1,0 +1,50 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "项目完成分析 CSV 导出 API",
+    "version": "0.1.0",
+    "description": "导出遵循项目完成分析的实时权限、项目隐私和数据范围过滤；字段白名单只包含项目状态和聚合任务指标。成功导出写入审计记录。"
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "paths": {
+    "/analytics/project-completion/export": {
+      "get": {
+        "summary": "导出项目完成分析 CSV",
+        "operationId": "exportProjectCompletionCsv",
+        "tags": ["analytics"],
+        "security": [{ "session": [] }],
+        "parameters": [
+          {
+            "name": "createdFrom",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "createdTo",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          { "name": "projectId", "in": "query", "schema": { "type": "string", "minLength": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "UTF-8 CSV file with BOM; maximum 10,000 project rows",
+            "headers": {
+              "Content-Disposition": { "schema": { "type": "string" } },
+              "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }
+            },
+            "content": { "text/csv": { "schema": { "type": "string" } } }
+          },
+          "403": { "description": "Missing permission or unsupported data scope" },
+          "404": { "description": "Requested project is missing or not visible" },
+          "422": { "description": "Invalid filter or export exceeds the row limit" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": { "type": "apiKey", "in": "cookie", "name": "session_token" }
+    }
+  }
+}

@@ -2,9 +2,9 @@
 
 > 英文名：Enterprise Collaboration & Office Management Platform  
 > 工程代号：`collab-office`  
-> 当前阶段：**第一阶段 · 技术架构重构完成，待人工审查**  
+> 当前阶段：**R1 · M0 开发与验收中（M0 尚未通过）**
 > 文档版本：0.3.0（2026-10-31）  
-> 状态：**禁止进入正式业务编码**
+> 状态：**M0 基础工程与验收进行中；已获授权并行开发后续业务模块**
 
 ## 1. 项目是什么
 
@@ -23,15 +23,38 @@
 
 ## 2. 当前阶段边界
 
-本阶段只做规划文档修订、存储方案研究、独立原型验证，不包含：
+架构审查已获批准，用户于 2026-11-02 授权在 M0 尚未通过时并行开发后续业务模块。M0 的未通过项与验收要求仍然有效；并行开发须独立验证，不得假定尚未落实的权限、存储与安全保证已具备。初始化与浏览器验收仅使用显式隔离的数据目录；不得迁移既有数据库或对历史项目（NextWeb4/gw 等）进行检查、复用或迁移。
 
-- 正式业务模块/API/前端页面；
-- 正式项目依赖安装；
-- 正式数据库/数据目录初始化；
-- Docker/数据库服务；
-- 对历史项目（NextWeb4/gw 等）的检查、复用或迁移。
+Docker、SQL/ORM、多租户及其他架构禁项仍不允许。
 
-阶段完成后必须等待人工审查，审查通过前不得进入编码。
+## Windows Bootstrap 启动
+
+以下是本机开发环境的最小启动检查，M0 整体验收仍未通过。需要 Node.js 24.17.0（24.x）和 pnpm 11.18.0；在 PowerShell 中进入项目根目录：
+
+```powershell
+node --version
+pnpm --version
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+打开 [http://127.0.0.1:5173/](http://127.0.0.1:5173/)，页面显示后端连接状态；点击“写入并读取”验证 LMDB，重启后可看到已有记录。默认后端地址为 `http://127.0.0.1:3000`。在启动终端按 Ctrl+C 停止；后端源码变更后需重启开发进程。生产构建使用 `pnpm build`，Bootstrap 读写接口仅用于本机开发环境。
+
+默认开发数据目录为 `%LOCALAPPDATA%\collab-office-bootstrap\data`，LMDB 位于其中的 `store\lmdb`，不位于源码目录。应使用本地 NTFS 盘，避免网络共享和同步目录；首次运行会初始化该目录，已有目录将被继续使用。需要隔离测试或 3000 端口已占用时，可在启动前设置：
+
+```powershell
+$env:DATA_DIR = 'C:\collab-office-bootstrap-test\data'
+$env:PORT = '3309'
+pnpm dev
+```
+
+使用一个专门的新目录，勿指向正式数据。变量只影响当前 PowerShell 会话；`Remove-Item Env:DATA_DIR, Env:PORT` 可恢复默认设置。`.env.example` 仅作配置参考，`pnpm dev` 不会自动加载 `.env`。
+
+### 设置管理员与添加内部账号
+
+系统没有默认账号和密码。首次在新的本机数据目录启动后，打开首页并在“设置首个管理员”页面填写姓名、内部账号和密码。设置成功后使用该账号登录，在侧栏“内部账号”中创建成员并设置初始密码；成员首次登录时必须修改密码。
+
+内部账号为 3–64 位字母、数字、点、下划线或连字符，首位须为字母或数字，不区分大小写。密码须为 12–128 位且不能是常见弱密码。首次设置只在监听本机且数据目录没有用户或审计历史时可用；已有数据不会被重置。需使用和 `pnpm dev` 一致的数据目录。命令行初始化仍可按 [开发指南](docs/04-development/development-guide.md) 使用。
 
 ## 3. 文档导航
 
@@ -64,6 +87,10 @@
 | F | [参考产品研究](docs/05-research/reference-products.md) | 产品设计参考与边界 |
 | F | [嵌入式存储评估](docs/05-research/embedded-storage-evaluation.md) | LMDB/ClassicLevel 原型结果 |
 | F | [依赖合规](docs/05-research/dependency-compliance.md) | 许可证、来源、准入 |
+| F | [开源项目研究](docs/open-source-research.md) | 五个候选项目的架构、功能、许可证与复用结论 |
+| F | [复用矩阵](docs/reuse-matrix.md) | A/B/C 复用分类与功能决策 |
+| F | [许可证合规](docs/license-compliance.md) | 许可证、软著与第三方依赖边界 |
+| F | [架构影响](docs/architecture-impact.md) | 候选项目对当前架构的冲突与推荐路径 |
 | 审查 | [技术架构重构审查报告](docs/第一阶段技术架构重构审查报告.md) | 原问题、修改、选型、验证、结论 |
 | 历史 | [第一阶段审查报告（旧）](docs/06-review/phase-1-review.md) | 已被重构版替代，仅留痕 |
 
@@ -74,7 +101,7 @@
 3. **权限管理**：创建用户 → 分配角色 → 授予权限 → 验证访问范围 → 记录关键操作。
 4. **文档管理**：上传 → 分类 → 授权 → 检索 → 下载 → 版本记录。
 
-## 5. 技术基线（待审查确认）
+## 5. 当前技术基线
 
 - 前端：React + TypeScript + Vite + Ant Design + Zustand + TanStack Query + React Hook Form + Zod + React Router
 - 后端：Node.js 24 LTS + Fastify + Zod + Repository/UnitOfWork
@@ -97,9 +124,9 @@
 
 ## 7. 下一步
 
-1. 人工审查 [技术架构重构审查报告](docs/第一阶段技术架构重构审查报告.md)。
-2. Q-015～Q-019 已关闭；等待人工审核本报告。
-3. 审查通过后才进入 R1/M0；未确认前不编码。
+1. 按 [M0 验收报告](docs/04-development/M0-acceptance-report.md) 处理未通过/未验证项并补充可复现证据。
+2. 并行开发后续业务模块并独立验证，持续补齐 M0 未落实的安全与存储保证；不得将并行开发视为 M0 通过。
+3. 历史 [技术架构重构审查报告](docs/第一阶段技术架构重构审查报告.md) 记录的是文档阶段结论；当前门禁以本文件、[AGENTS.md](AGENTS.md) 和 M0 验收报告为准。
 
 
 

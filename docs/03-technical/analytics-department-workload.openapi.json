@@ -1,0 +1,48 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Department Workload Analytics API",
+    "version": "1.0.0",
+    "description": "部门工作量为当前快照聚合。仅统计组织可见项目中、已分配给 active 内部账号的任务；不会返回私有项目或任务明细。"
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "paths": {
+    "/analytics/department-workload": {
+      "get": {
+        "summary": "查询部门工作量",
+        "security": [{ "session": [] }],
+        "parameters": [{ "name": "departmentId", "in": "query", "description": "可选。必须处于当前主体按对应分析权限合并得到的部门范围内。", "schema": { "type": "string", "minLength": 1, "maxLength": 64 } }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/DepartmentWorkloadReport" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "403": { "$ref": "#/components/responses/Problem" },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "session": { "type": "apiKey", "in": "cookie", "name": "collab_session" } },
+    "schemas": {
+      "DepartmentMetric": {
+        "type": "object",
+        "required": ["departmentId", "departmentName", "activeUserCount", "taskCount", "completedTaskCount", "cancelledTaskCount", "openTaskCount", "overdueTaskCount"],
+        "properties": {
+          "departmentId": { "type": "string" }, "departmentName": { "type": "string" },
+          "activeUserCount": { "type": "integer", "minimum": 0 }, "taskCount": { "type": "integer", "minimum": 0 },
+          "completedTaskCount": { "type": "integer", "minimum": 0 }, "cancelledTaskCount": { "type": "integer", "minimum": 0 },
+          "openTaskCount": { "type": "integer", "minimum": 0 }, "overdueTaskCount": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "Problem": { "type": "object", "properties": { "type": { "type": "string" }, "title": { "type": "string" }, "status": { "type": "integer" }, "detail": { "type": "string" } } }
+    },
+    "responses": {
+      "DepartmentWorkloadReport": {
+        "description": "按允许部门聚合的当前任务快照。",
+        "content": { "application/json": { "schema": { "type": "object", "required": ["data"], "properties": { "data": { "type": "object", "required": ["generatedAt", "timezone", "overdueAsOfLocalDate", "filter", "departments"], "properties": { "generatedAt": { "type": "string", "format": "date-time" }, "timezone": { "type": "string" }, "overdueAsOfLocalDate": { "type": "string", "format": "date" }, "filter": { "type": "object", "properties": { "departmentId": { "type": "string" } } }, "departments": { "type": "array", "items": { "$ref": "#/components/schemas/DepartmentMetric" } } } } } } } }
+      },
+      "Problem": { "description": "RFC 7807 problem response.", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } } }
+    }
+  }
+}

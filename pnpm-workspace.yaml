@@ -1,0 +1,19 @@
+packages:
+  - app/frontend
+  - app/backend
+  - app/shared
+
+# pnpm 11 stores workspace-level settings in this file. The project resides on
+# exFAT, so use a flat node_modules layout and copy packages instead of linking.
+saveExact: true
+nodeLinker: hoisted
+packageImportMethod: copy
+injectWorkspacePackages: true
+dedupeInjectedDeps: false
+
+# Reviewed for Windows x64: esbuild validates the matching optional binary;
+# lmdb and msgpackr-extract load the matching prebuilt native addons.
+allowBuilds:
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true

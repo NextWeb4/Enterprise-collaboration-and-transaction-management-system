@@ -1,0 +1,6 @@
+{
+  "timezone": "Asia/Shanghai",
+  "locale": "zh-CN",
+  "currency": "CNY",
+  "notes": "非敏感静态配置模板。复制到 <DATA_DIR>/config/platform.json 生效；密钥只走环境变量，不得写入本文件。"
+}

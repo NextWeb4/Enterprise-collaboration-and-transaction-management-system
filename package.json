@@ -1,0 +1,48 @@
+{
+  "name": "collab-office",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "企业协同与事务管理平台（Enterprise Collaboration & Office Management Platform）",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24.17.0 <25"
+  },
+  "scripts": {
+    "dev": "pnpm run build:shared && node scripts/dev.mjs",
+    "dev:api": "pnpm run build:shared && pnpm exec tsx watch app/backend/src/server.ts",
+    "dev:web": "pnpm run build:shared && pnpm exec vite --config app/frontend/vite.config.ts",
+    "build": "pnpm run build:shared && pnpm run build:api && pnpm run build:web",
+    "build:shared": "pnpm --filter @collab/shared run build",
+    "build:api": "pnpm exec tsc -p tsconfig.backend.json",
+    "build:web": "pnpm exec vite build --config app/frontend/vite.config.ts",
+    "typecheck": "pnpm run build:shared && pnpm exec tsc -p tsconfig.backend-test.json --noEmit && pnpm exec tsc -p tsconfig.frontend.json --noEmit",
+    "lint": "pnpm exec eslint .",
+    "format": "pnpm exec prettier --write .",
+    "test": "pnpm run build:shared && pnpm exec vitest run --config vitest.api.config.ts && pnpm exec vitest run --config vitest.web.config.ts",
+    "test:coverage:api": "pnpm run build:shared && pnpm exec vitest run --config vitest.api.config.ts --coverage",
+    "test:coverage:web": "pnpm exec vitest run --config vitest.web.config.ts --coverage",
+    "test:coverage": "pnpm run test:coverage:api && pnpm run test:coverage:web",
+    "data:init": "pnpm exec tsx app/backend/src/cli/data-init.ts",
+    "bootstrap:admin": "pnpm exec tsx app/backend/src/cli/bootstrap-admin.ts",
+    "storage:verify": "pnpm exec tsx app/backend/src/cli/storage-verify.ts",
+    "storage:rebuild-indexes": "pnpm exec tsx app/backend/src/cli/rebuild-indexes.ts",
+    "storage:migrate": "pnpm exec tsx app/backend/src/cli/migrate.ts",
+    "start": "node app/backend/dist/server.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@vitest/coverage-v8": "5.0.5",
+    "eslint": "10.14.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "jsdom": "30.1.3",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.0.5"
+  }
+}

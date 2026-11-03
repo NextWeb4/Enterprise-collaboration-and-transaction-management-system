@@ -1,10 +1,10 @@
 # 开发指南
 
-> 文档状态：Draft for Review  
+> 文档状态：工作稿（M0 开发/验收指引）
 > 版本：0.2.0  
-> 日期：2026-10-31  
-> 适用：R1 实现阶段（审查通过后）  
-> 当前阶段禁止执行安装/初始化命令。
+> 日期：2026-11-01
+> 适用：已获准的 R1/M0 基础、存储、身份开发与验收
+> 当前阶段：R1/M0 已获准；用户于 2026-11-02 授权在 M0 尚未通过时并行开发后续业务模块。
 
 ## 1. 前置条件
 
@@ -14,25 +14,24 @@
 | pnpm | 11.x | 11.18.0 ✅ |
 | Git | 2.40+ | 2.53.0 ✅ |
 | Windows | 10/11 64 位 | Windows 10.0.19045 ✅ |
-| LMDB | `lmdb@3.5.9` | 原型验证通过（未安装到正式项目） |
+| LMDB | `lmdb@3.5.9` | 已声明并锁定；NTFS 隔离副本安装验证通过，E: 目标卷安装验收未通过 |
 | Docker/数据库服务 | — | **不需要** |
 
 没有 PostgreSQL/MySQL/SQLite/Prisma/Docker 前置要求。若 `lmdb` 的 Windows 预编译不可用，需要 Node 构建工具（Python/VS Build Tools），但首选预编译。
 
-## 2. 初始化（审查通过后）
+## 2. 安装与初始化（受控开发/隔离数据目录）
 
 ```bash
-pnpm install
-# 初始化数据目录（不创建正式业务数据）
-pnpm --filter @collab-office/api data:init
-# 初始化组织/管理员（交互式）
-pnpm --filter @collab-office/api bootstrap:admin
-# 开发
-pnpm --filter @collab-office/api dev
-pnpm --filter @collab-office/web dev
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm run lint
+pnpm test
+pnpm run build
 ```
 
-- 正式依赖仅 `lmdb` 等；不使用 SQL/ORM/Docker。
+- workspace 为 `@collab/frontend`、`@collab/backend`、`@collab/shared`；统一从根目录运行脚本。
+- 初始化必须显式指定隔离/目标 `DATA_DIR`；先运行 `pnpm run data:init`，再通过 `BOOTSTRAP_ADMIN_ACCOUNT`、`BOOTSTRAP_ADMIN_PASSWORD` 运行 `pnpm run bootstrap:admin`。
+- 不使用 SQL/ORM/Docker；不要在已有数据目录上重复初始化或运行破坏性操作。
 - `data/` 默认在项目外/可配置；开发用 `./.data` 或 `%LOCALAPPDATA%`。
 - 测试使用独立临时目录，不共享开发数据。
 
@@ -168,6 +167,7 @@ node app\backend\dist\server.js
 ```
 
 - 启动：`start.cmd` 或 `node app\backend\dist\server.js`。
+- 生产 `start.cmd` 固定配置 `WEB_ORIGIN=http://127.0.0.1:3000`；若显式开放局域网，应同时把 `WEB_ORIGIN` 配为用户实际访问的完整 Origin（协议、主机、端口），否则登录/变更请求会被 CSRF 来源校验拒绝。
 - 停止：终端 `Ctrl+C` 或关闭进程窗口；不注册 Windows 服务。
 - 单端口；默认不开放防火墙；需要局域网时显式放行并提示风险。
 - 普通进程运行；运行账号仅 `data/` 权限。
@@ -188,12 +188,8 @@ node app\backend\dist\server.js
 
 ## 15. 当前门禁
 
-- 第一阶段只文档 + 项目外原型；**不安装正式依赖/不建正式工程**。
-- 人工审查通过后再执行第 2 节。
-- 任何 AI 代理遵守 [AGENTS.md](../../AGENTS.md)。
-
-
-
-
-
+- 架构审查已获批准，允许进行 R1/M0 基础、存储、身份工程与验收。
+- M0 尚未通过；后续业务模块可以并行开发并须独立验证，不能假定尚未落实的安全和存储保证已经具备。M0 验收要求及人工确认仍然有效；具体未通过/未验证项见 [M0 验收报告](M0-acceptance-report.md)。
+- 初始化与运行验收只能使用明确隔离的数据目录；不得迁移现有数据库或覆盖非验收数据目录。
+- 任何 AI 代理遵守当前 [AGENTS.md](../../AGENTS.md)；本指南与阶段门禁冲突时以 AGENTS.md 和最新 M0 验收报告为准。
 

@@ -1,0 +1,32 @@
+{
+  "name": "@collab/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependenciesMeta": {
+    "@collab/shared": {
+      "injected": true
+    }
+  },
+  "dependencies": {
+    "@ant-design/icons": "5.6.1",
+    "@ant-design/v5-patch-for-react-19": "1.0.3",
+    "@collab/shared": "workspace:*",
+    "@hookform/resolvers": "3.10.0",
+    "@tanstack/react-query": "5.105.0",
+    "antd": "5.29.3",
+    "dayjs": "1.11.23",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-hook-form": "7.91.0",
+    "react-router-dom": "7.18.5",
+    "zustand": "5.0.16",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "vite": "8.3.5"
+  }
+}

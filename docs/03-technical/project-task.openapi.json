@@ -1,0 +1,3055 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "企业协同平台项目与任务 API 已实现子集",
+    "version": "0.1.0",
+    "description": "仅记录当前已实现的项目与任务端点；完整业务模块仍未交付。私有项目非成员 404，组织可见项目非成员只读。"
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "Session": []
+    }
+  ],
+  "paths": {
+    "/projects": {
+      "get": {
+        "summary": "项目列表",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:read",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "schemaVersion": {
+                            "type": "integer"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "deletedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "visibility": {
+                            "enum": [
+                              "private",
+                              "organization"
+                            ]
+                          },
+                          "status": {
+                            "enum": [
+                              "planning",
+                              "active",
+                              "on_hold",
+                              "completed",
+                              "cancelled",
+                              "archived"
+                            ]
+                          },
+                          "statusReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ownerId": {
+                            "type": "string"
+                          },
+                          "taskSeq": {
+                            "type": "integer"
+                          },
+                          "startDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dueDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "type",
+                          "schemaVersion",
+                          "version",
+                          "createdAt",
+                          "updatedAt",
+                          "deletedAt",
+                          "name",
+                          "key",
+                          "description",
+                          "visibility",
+                          "status",
+                          "statusReason",
+                          "ownerId",
+                          "taskSeq",
+                          "startDate",
+                          "dueDate"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer"
+                        },
+                        "pageSize": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "创建项目",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:create",
+        "responses": {
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "visibility": {
+                          "enum": [
+                            "private",
+                            "organization"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "planning",
+                            "active",
+                            "on_hold",
+                            "completed",
+                            "cancelled",
+                            "archived"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "taskSeq": {
+                          "type": "integer"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "name",
+                        "key",
+                        "description",
+                        "visibility",
+                        "status",
+                        "statusReason",
+                        "ownerId",
+                        "taskSeq",
+                        "startDate",
+                        "dueDate"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "key": {
+                    "type": "string",
+                    "pattern": "^[A-Z][A-Z0-9]{1,9}$"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "visibility": {
+                    "enum": [
+                      "private",
+                      "organization"
+                    ]
+                  },
+                  "startDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "key",
+                  "visibility"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "项目详情",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:read",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "visibility": {
+                          "enum": [
+                            "private",
+                            "organization"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "planning",
+                            "active",
+                            "on_hold",
+                            "completed",
+                            "cancelled",
+                            "archived"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "taskSeq": {
+                          "type": "integer"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "name",
+                        "key",
+                        "description",
+                        "visibility",
+                        "status",
+                        "statusReason",
+                        "ownerId",
+                        "taskSeq",
+                        "startDate",
+                        "dueDate"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        }
+      },
+      "patch": {
+        "summary": "编辑项目",
+        "description": "需要 project:update、项目 owner/manager 身份；已结束项目只读。短键不可修改。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:update",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "visibility": {
+                          "enum": [
+                            "private",
+                            "organization"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "planning",
+                            "active",
+                            "on_hold",
+                            "completed",
+                            "cancelled",
+                            "archived"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "taskSeq": {
+                          "type": "integer"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "name",
+                        "key",
+                        "description",
+                        "visibility",
+                        "status",
+                        "statusReason",
+                        "ownerId",
+                        "taskSeq",
+                        "startDate",
+                        "dueDate"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "version"
+                ],
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 10000
+                  },
+                  "visibility": {
+                    "enum": [
+                      "private",
+                      "organization"
+                    ]
+                  },
+                  "startDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "软删除项目",
+        "description": "项目必须没有未完成任务；删除后短键永久占用。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:delete；项目成员中的组织管理员",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "success"
+                      ],
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/transition": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "项目状态流转",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:update 或 project:archive",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "visibility": {
+                          "enum": [
+                            "private",
+                            "organization"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "planning",
+                            "active",
+                            "on_hold",
+                            "completed",
+                            "cancelled",
+                            "archived"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "taskSeq": {
+                          "type": "integer"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "name",
+                        "key",
+                        "description",
+                        "visibility",
+                        "status",
+                        "statusReason",
+                        "ownerId",
+                        "taskSeq",
+                        "startDate",
+                        "dueDate"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "targetStatus": {
+                    "enum": [
+                      "active",
+                      "on_hold",
+                      "completed",
+                      "cancelled",
+                      "archived"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "version",
+                  "targetStatus"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/members": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "项目成员",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:read",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "enum": [
+                              "owner",
+                              "manager",
+                              "member",
+                              "viewer"
+                            ]
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "name",
+                          "role",
+                          "version"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        }
+      },
+      "post": {
+        "summary": "添加项目成员",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:member:manage",
+        "responses": {
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "enum": [
+                            "owner",
+                            "manager",
+                            "member",
+                            "viewer"
+                          ]
+                        },
+                        "membershipKey": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "projectId",
+                        "userId",
+                        "role",
+                        "membershipKey"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "role": {
+                    "enum": [
+                      "manager",
+                      "member",
+                      "viewer"
+                    ]
+                  }
+                },
+                "required": [
+                  "userId",
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/members/{userId}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "移除项目成员",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:member:manage",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "success"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "修改项目成员角色",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:member:manage",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "userId": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "enum": [
+                            "owner",
+                            "manager",
+                            "member",
+                            "viewer"
+                          ]
+                        },
+                        "membershipKey": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "projectId",
+                        "userId",
+                        "role",
+                        "membershipKey"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "role": {
+                    "enum": [
+                      "manager",
+                      "member",
+                      "viewer"
+                    ]
+                  }
+                },
+                "required": [
+                  "version",
+                  "role"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/transfer-owner": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "转让项目负责人",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "project:owner:transfer",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "visibility": {
+                          "enum": [
+                            "private",
+                            "organization"
+                          ]
+                        },
+                        "status": {
+                          "enum": [
+                            "planning",
+                            "active",
+                            "on_hold",
+                            "completed",
+                            "cancelled",
+                            "archived"
+                          ]
+                        },
+                        "statusReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ownerId": {
+                          "type": "string"
+                        },
+                        "taskSeq": {
+                          "type": "integer"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "name",
+                        "key",
+                        "description",
+                        "visibility",
+                        "status",
+                        "statusReason",
+                        "ownerId",
+                        "taskSeq",
+                        "startDate",
+                        "dueDate"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "userId",
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}/tasks": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "项目任务列表",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:read",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "schemaVersion": {
+                            "type": "integer"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "deletedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "taskNo": {
+                            "type": "integer"
+                          },
+                          "taskKey": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "enum": [
+                              "todo",
+                              "in_progress",
+                              "in_review",
+                              "done",
+                              "cancelled"
+                            ]
+                          },
+                          "progress": {
+                            "type": "integer"
+                          },
+                          "priority": {
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high",
+                              "urgent"
+                            ]
+                          },
+                          "assigneeId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdBy": {
+                            "type": "string"
+                          },
+                          "startDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "dueDate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "completedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "type",
+                          "schemaVersion",
+                          "version",
+                          "createdAt",
+                          "updatedAt",
+                          "deletedAt",
+                          "projectId",
+                          "taskNo",
+                          "taskKey",
+                          "title",
+                          "description",
+                          "status",
+                          "progress",
+                          "priority",
+                          "assigneeId",
+                          "createdBy",
+                          "startDate",
+                          "dueDate",
+                          "completedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer"
+                        },
+                        "pageSize": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "创建任务",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:create",
+        "responses": {
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "taskNo": {
+                          "type": "integer"
+                        },
+                        "taskKey": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "todo",
+                            "in_progress",
+                            "in_review",
+                            "done",
+                            "cancelled"
+                          ]
+                        },
+                        "progress": {
+                          "type": "integer"
+                        },
+                        "priority": {
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "urgent"
+                          ]
+                        },
+                        "assigneeId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "completedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "projectId",
+                        "taskNo",
+                        "taskKey",
+                        "title",
+                        "description",
+                        "status",
+                        "progress",
+                        "priority",
+                        "assigneeId",
+                        "createdBy",
+                        "startDate",
+                        "dueDate",
+                        "completedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high",
+                      "urgent"
+                    ]
+                  },
+                  "assigneeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "startDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "title"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "summary": "更新任务",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:update",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "taskNo": {
+                          "type": "integer"
+                        },
+                        "taskKey": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "todo",
+                            "in_progress",
+                            "in_review",
+                            "done",
+                            "cancelled"
+                          ]
+                        },
+                        "progress": {
+                          "type": "integer"
+                        },
+                        "priority": {
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "urgent"
+                          ]
+                        },
+                        "assigneeId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "completedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "projectId",
+                        "taskNo",
+                        "taskKey",
+                        "title",
+                        "description",
+                        "status",
+                        "progress",
+                        "priority",
+                        "assigneeId",
+                        "createdBy",
+                        "startDate",
+                        "dueDate",
+                        "completedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high",
+                      "urgent"
+                    ]
+                  },
+                  "assigneeId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "startDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dueDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "status": {
+                    "enum": [
+                      "todo",
+                      "in_progress",
+                      "in_review",
+                      "done",
+                      "cancelled"
+                    ]
+                  },
+                  "progress": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "任务详情",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:read",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "schemaVersion": {
+                          "type": "integer"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "deletedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "taskNo": {
+                          "type": "integer"
+                        },
+                        "taskKey": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "todo",
+                            "in_progress",
+                            "in_review",
+                            "done",
+                            "cancelled"
+                          ]
+                        },
+                        "progress": {
+                          "type": "integer"
+                        },
+                        "priority": {
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "urgent"
+                          ]
+                        },
+                        "assigneeId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdBy": {
+                          "type": "string"
+                        },
+                        "startDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "completedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "schemaVersion",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "deletedAt",
+                        "projectId",
+                        "taskNo",
+                        "taskKey",
+                        "title",
+                        "description",
+                        "status",
+                        "progress",
+                        "priority",
+                        "assigneeId",
+                        "createdBy",
+                        "startDate",
+                        "dueDate",
+                        "completedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        }
+      },
+      "delete": {
+        "summary": "软删除任务",
+        "description": "需要有效会话；写操作要求 Origin 和 CSRF，服务层在事务内重验身份、权限与资源关系。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:delete",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "success"
+                      ],
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "版本或状态冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "version"
+                ],
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{id}/board": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "summary": "移动任务并重排完整列",
+        "description": "已认证请求；服务端检查项目可见性、成员角色与事务内权限。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:update",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "task": {
+                          "type": "object"
+                        },
+                        "columns": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "task",
+                        "columns"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或无权访问"
+          },
+          "409": {
+            "description": "版本、状态或编辑时限冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "targetStatus": {
+                    "enum": [
+                      "todo",
+                      "in_progress",
+                      "in_review",
+                      "done"
+                    ]
+                  },
+                  "targetIndex": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "progress": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "version",
+                  "targetStatus",
+                  "targetIndex"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{id}/comments": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "任务评论列表",
+        "description": "已认证请求；服务端检查项目可见性、成员角色与事务内权限。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:read",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "content": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "authorId": {
+                            "type": "string"
+                          },
+                          "taskId": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "editedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "removedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "taskId",
+                          "authorId",
+                          "content",
+                          "version",
+                          "createdAt",
+                          "editedAt",
+                          "removedAt"
+                        ]
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer"
+                        },
+                        "pageSize": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或无权访问"
+          },
+          "409": {
+            "description": "版本、状态或编辑时限冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 20,
+              "maximum": 100
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "添加评论",
+        "description": "已认证请求；服务端检查项目可见性、成员角色与事务内权限。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:comment",
+        "responses": {
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或无权访问"
+          },
+          "409": {
+            "description": "版本、状态或编辑时限冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "content": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "authorId": {
+                          "type": "string"
+                        },
+                        "taskId": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "editedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "taskId",
+                        "authorId",
+                        "content",
+                        "version",
+                        "createdAt",
+                        "editedAt",
+                        "removedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "content"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/comments/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "summary": "编辑评论（15 分钟内，作者）",
+        "description": "已认证请求；服务端检查项目可见性、成员角色与事务内权限。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:comment",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "content": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "authorId": {
+                          "type": "string"
+                        },
+                        "taskId": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "editedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "taskId",
+                        "authorId",
+                        "content",
+                        "version",
+                        "createdAt",
+                        "editedAt",
+                        "removedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或无权访问"
+          },
+          "409": {
+            "description": "版本、状态或编辑时限冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "version",
+                  "content"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除评论（他人评论需要理由）",
+        "description": "已认证请求；服务端检查项目可见性、成员角色与事务内权限。",
+        "tags": [
+          "项目与任务"
+        ],
+        "x-permission": "task:comment 或 task:comment:moderate",
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "success"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "无权限或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或无权访问"
+          },
+          "409": {
+            "description": "版本、状态或编辑时限冲突"
+          },
+          "422": {
+            "description": "参数错误"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "version"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "Session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "collab_session"
+      }
+    }
+  }
+}

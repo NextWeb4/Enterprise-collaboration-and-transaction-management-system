@@ -1,0 +1,985 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "企业协同与事务管理平台 M0 RBAC API",
+    "version": "0.1.0",
+    "description": "当前 RBAC 端点契约。角色请求校验见 app/shared/src/schemas.ts，授权见 AuthService。dataScope 仅保存契约值，部门过滤和多角色范围合并仍待决。此文档不代表完整 R1 API 已交付。"
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "Session": []
+    }
+  ],
+  "paths": {
+    "/organization/roles": {
+      "get": {
+        "operationId": "listRoles",
+        "summary": "列出活跃角色（当前固定第一页，最多 100 条）",
+        "x-permission": "role:manage",
+        "responses": {
+          "200": {
+            "description": "角色及版本",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Role"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRole",
+        "summary": "创建自定义角色",
+        "description": "code 不得占用系统角色代码。权限必须来自目录且为操作者当前权限子集；写事务内重新授权并追加 role.created。",
+        "x-permission": "role:manage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRole"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Role"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/roles": {
+      "get": {
+        "operationId": "listRolesLegacyAlias",
+        "summary": "角色列表兼容别名，与 /organization/roles 相同",
+        "x-permission": "role:manage",
+        "responses": {
+          "200": {
+            "$ref": "#/paths/~1organization~1roles/get/responses/200"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/organization/roles/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "patch": {
+        "operationId": "updateRole",
+        "summary": "更新自定义角色，系统角色不可修改",
+        "description": "必须携带 version 和至少一个修改字段。code 不可修改；权限更新下一请求生效，审计包含权限及范围差异。",
+        "x-permission": "role:manage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRole"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Role"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteRole",
+        "summary": "软删除未被用户引用的自定义角色",
+        "description": "系统角色不可删；用户仍持有该角色或版本过期返回 409。",
+        "x-permission": "role:manage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Version"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "软删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "success"
+                      ],
+                      "properties": {
+                        "success": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/organization/permissions": {
+      "get": {
+        "operationId": "listPermissionCatalog",
+        "summary": "共享权限目录，只读",
+        "x-permission": "permission:read",
+        "responses": {
+          "200": {
+            "description": "权限目录",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "code",
+                          "module",
+                          "name"
+                        ],
+                        "properties": {
+                          "code": {
+                            "type": "string"
+                          },
+                          "module": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/organization/users/{id}/effective-permissions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "get": {
+        "operationId": "getManagedUserPermissions",
+        "summary": "查询用户角色、有效权限和乐观锁版本",
+        "description": "返回 version 与 roleIds，供全量角色替换使用；不计算 dataScope 合并，不返回密码哈希或会话信息。",
+        "x-permission": "role:manage",
+        "responses": {
+          "200": {
+            "description": "角色管理视图",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "user",
+                        "version",
+                        "roleIds",
+                        "roles",
+                        "permissions"
+                      ],
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/PublicUser"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "roleIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/users/{id}/roles": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "put": {
+        "operationId": "replaceUserRoles",
+        "summary": "全量替换他人的角色",
+        "description": "至少一个角色，禁止自改；系统管理员不得授予 org_admin；仅 org_admin 可授予或撤销管理员角色；最后一个活跃组织管理员受保护。事务内重新读取权限与引用，追加 assigned/revoked 审计。版本/最后管理员冲突为 409；不返回敏感字段。",
+        "x-permission": "role:manage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "roleIds",
+                  "version"
+                ],
+                "properties": {
+                  "roleIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicUser"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/users": {
+      "post": {
+        "operationId": "createManagedUser",
+        "summary": "创建用户并初始分配一个角色",
+        "description": "支持由管理员指定初始密码；省略时生成随机临时密码。首次登录强制改密；需 user:manage 和 CSRF，非默认角色受角色授权限制。",
+        "x-permission": "user:manage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "email": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$",
+                    "description": "内部账号；字段名为兼容旧契约保留"
+                  },
+                  "roleCode": {
+                    "type": "string",
+                    "default": "member"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "minLength": 12,
+                    "maxLength": 128,
+                    "description": "可选；未提供时返回随机临时密码，指定时不回传密码"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "账号及一次性临时密码",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "user",
+                        "temporaryPassword"
+                      ],
+                      "properties": {
+                        "user": {
+                          "$ref": "#/components/schemas/PublicUser"
+                        },
+                        "temporaryPassword": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/users/{id}/disable": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/Id"
+        }
+      ],
+      "post": {
+        "operationId": "disableUser",
+        "summary": "停用用户并撤销全部会话",
+        "description": "必须携带当前 version；禁止停用自己，最后一个活跃 org_admin 受保护。用户状态、目标用户全部活跃会话和 user.disabled/session.revoked 审计在一个 LMDB 写事务中提交。当前审批人转交校验待 Workflow 模块实现。",
+        "x-permission": "user:manage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          },
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableUser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicUser"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/setup/status": {
+      "get": {
+        "operationId": "setupStatus",
+        "summary": "检查本机首次初始化状态",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "是否需要初始化"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    },
+    "/setup/admin": {
+      "post": {
+        "operationId": "setupAdmin",
+        "summary": "本机首次设置管理员",
+        "description": "仅本机地址、受信 Origin 且无用户及审计历史时允许；事务内检查并创建。",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Origin"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "email": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "minLength": 12,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "管理员创建成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/Problem"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "Session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "collab_session",
+        "description": "默认 Cookie 名，可由 SESSION_COOKIE_NAME 配置。写请求还必须有与会话匹配的 csrf_token Cookie、X-CSRF-Token 和可信 Origin/Referer。"
+      }
+    },
+    "parameters": {
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "CsrfToken": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "Origin": {
+        "name": "Origin",
+        "in": "header",
+        "description": "须与 WEB_ORIGIN 相同；未提供时服务端仅允许可信 Referer，二者都缺失则拒绝。",
+        "schema": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "responses": {
+      "Role": {
+        "description": "角色及版本",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PublicUser": {
+        "description": "安全用户视图；更新后重新获取 effective-permissions 以取得新 version",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/PublicUser"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Problem": {
+        "description": "401 未认证；403 功能无权限/CSRF/自改/系统角色保护；404 资源不存在；409 版本/唯一性/引用/最后管理员冲突；422 校验；429 限流；503 存储错误。",
+        "content": {
+          "application/problem+json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "title",
+                "status",
+                "code"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "requestId": {
+                  "type": "string"
+                },
+                "instance": {
+                  "type": "string"
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "path",
+                      "message"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "message": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "DataScope": {
+        "type": "string",
+        "enum": [
+          "self",
+          "department",
+          "department_tree",
+          "all"
+        ]
+      },
+      "Version": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "DisableUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      },
+      "CreateRole": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "name",
+          "dataScope",
+          "permissionCodes"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,63}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 30
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300,
+            "default": ""
+          },
+          "dataScope": {
+            "$ref": "#/components/schemas/DataScope"
+          },
+          "permissionCodes": {
+            "type": "array",
+            "maxItems": 200,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "UpdateRole": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "name"
+            ]
+          },
+          {
+            "required": [
+              "description"
+            ]
+          },
+          {
+            "required": [
+              "dataScope"
+            ]
+          },
+          {
+            "required": [
+              "permissionCodes"
+            ]
+          }
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 30
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "dataScope": {
+            "$ref": "#/components/schemas/DataScope"
+          },
+          "permissionCodes": {
+            "type": "array",
+            "maxItems": 200,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "Role": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "schemaVersion",
+          "version",
+          "createdAt",
+          "updatedAt",
+          "deletedAt",
+          "code",
+          "name",
+          "description",
+          "dataScope",
+          "permissionCodes",
+          "system"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "const": "role"
+          },
+          "schemaVersion": {
+            "const": 1
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deletedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "dataScope": {
+            "$ref": "#/components/schemas/DataScope"
+          },
+          "permissionCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "system": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageMeta": {
+        "type": "object",
+        "required": [
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PublicUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "email",
+          "status",
+          "mustChangePassword",
+          "lastLoginAt",
+          "passwordChangedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "内部账号；已有邮箱格式标识保持兼容"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "lastLoginAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "passwordChangedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

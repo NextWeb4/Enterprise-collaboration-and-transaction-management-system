@@ -1,0 +1,42 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "部门管理 API", "version": "0.1.0", "description": "单组织部门切片；仅支持授予相应权限且范围为 all 的角色。" },
+  "servers": [{ "url": "/api/v1" }],
+  "paths": {
+    "/organization/departments": {
+      "get": {
+        "summary": "读取扁平部门列表",
+        "security": [{ "session": [] }],
+        "responses": { "200": { "description": "成功", "content": { "application/json": { "schema": { "type": "object", "required": ["data"], "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Department" } } } } } } }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "$ref": "#/components/responses/Problem" } }
+      },
+      "post": {
+        "summary": "创建部门",
+        "security": [{ "session": [], "csrf": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Origin" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentInput" } } } },
+        "responses": { "201": { "$ref": "#/components/responses/Department" }, "422": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" } }
+      }
+    },
+    "/organization/departments/{id}": {
+      "patch": {
+        "summary": "完整更新部门字段",
+        "security": [{ "session": [], "csrf": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }, { "$ref": "#/components/parameters/Origin" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DepartmentUpdate" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/Department" }, "422": { "$ref": "#/components/responses/Problem" }, "401": { "$ref": "#/components/responses/Problem" }, "403": { "$ref": "#/components/responses/Problem" }, "404": { "$ref": "#/components/responses/Problem" }, "409": { "$ref": "#/components/responses/Problem" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "session": { "type": "apiKey", "in": "cookie", "name": "collab_session" }, "csrf": { "type": "apiKey", "in": "header", "name": "X-CSRF-Token" } },
+    "parameters": { "Origin": { "name": "Origin", "in": "header", "required": true, "schema": { "type": "string" } } },
+    "schemas": {
+      "DepartmentInput": { "type": "object", "additionalProperties": false, "required": ["parentId", "name", "code", "managerId", "description", "sortOrder"], "properties": {
+        "parentId": { "type": ["string", "null"], "minLength": 1, "maxLength": 64 }, "name": { "type": "string", "minLength": 1, "maxLength": 80 }, "code": { "type": ["string", "null"], "minLength": 1, "maxLength": 64 }, "managerId": { "type": ["string", "null"], "minLength": 1, "maxLength": 64 }, "description": { "type": "string", "maxLength": 300 }, "sortOrder": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+      } },
+      "DepartmentUpdate": { "type": "object", "additionalProperties": false, "required": ["parentId", "name", "code", "managerId", "description", "sortOrder", "version"], "properties": { "parentId": { "type": ["string", "null"], "minLength": 1, "maxLength": 64 }, "name": { "type": "string", "minLength": 1, "maxLength": 80 }, "code": { "type": ["string", "null"], "minLength": 1, "maxLength": 64 }, "managerId": { "type": ["string", "null"], "minLength": 1, "maxLength": 64 }, "description": { "type": "string", "maxLength": 300 }, "sortOrder": { "type": "integer", "minimum": 0, "maximum": 1000000 }, "version": { "type": "integer", "minimum": 1 } } },
+      "Department": { "type": "object", "required": ["id", "type", "schemaVersion", "version", "createdAt", "updatedAt", "deletedAt", "parentId", "name", "code", "managerId", "description", "sortOrder"], "properties": { "id": { "type": "string" }, "type": { "const": "department" }, "schemaVersion": { "const": 1 }, "version": { "type": "integer" }, "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": "string", "format": "date-time" }, "deletedAt": { "type": ["string", "null"], "format": "date-time" }, "parentId": { "type": ["string", "null"] }, "name": { "type": "string" }, "code": { "type": ["string", "null"] }, "managerId": { "type": ["string", "null"] }, "description": { "type": "string" }, "sortOrder": { "type": "integer" } } }
+    },
+    "responses": { "Department": { "description": "部门", "content": { "application/json": { "schema": { "type": "object", "required": ["data"], "properties": { "data": { "$ref": "#/components/schemas/Department" } } } } } }, "Problem": { "description": "problem+json 错误" } }
+  }
+}

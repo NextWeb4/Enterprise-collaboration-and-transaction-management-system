@@ -210,13 +210,13 @@ sequenceDiagram
 ```text
 C:\EnterprisePlatform\
 ├─ app\
-│  ├─ backend\        # node dist/server.js
+│  ├─ backend\dist\   # node app\backend\dist\server.js
 │  ├─ frontend\dist\  # SPA
 │  └─ shared\
 ├─ data\
 ├─ scripts\
 ├─ config.example.json
-└─ start.bat / install-service.ps1
+└─ scripts\start.cmd
 ```
 
 启动：

@@ -1,0 +1,32 @@
+# 依赖与构建产物
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+app/backend/dist/
+app/frontend/dist/
+app/shared/dist/
+
+# 数据目录：正式数据绝不入库（含开发 .data 与生产 data/）
+.data/
+data/
+
+# 环境变量（仅提交 .env.example）
+.env
+.env.*
+!.env.example
+
+# 日志
+*.log
+logs/
+
+# 编辑器/系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# 测试产物（E2E，后续里程碑）
+test-results/
+playwright-report/

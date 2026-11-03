@@ -1,0 +1,85 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "项目经营分析 API",
+    "version": "0.1.0",
+    "description": "项目分析复用项目可见性、项目角色与权限范围守卫。完成率使用当前快照；逾期按组织时区的本地日期计算。"
+  },
+  "servers": [{ "url": "/api/v1" }],
+  "paths": {
+    "/analytics/project-completion": {
+      "get": {
+        "summary": "查询项目完成率与逾期任务",
+        "security": [{ "session": [] }],
+        "parameters": [
+          { "name": "projectId", "in": "query", "schema": { "type": "string", "minLength": 1 } },
+          { "name": "createdFrom", "in": "query", "description": "项目创建时间下限（含），RFC 3339。", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "createdTo", "in": "query", "description": "项目创建时间上限（不含），RFC 3339。", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "overduePage", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "overduePageSize", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ProjectCompletionReport" },
+          "401": { "$ref": "#/components/responses/Problem" },
+          "403": { "$ref": "#/components/responses/Problem" },
+          "404": { "$ref": "#/components/responses/Problem" },
+          "422": { "$ref": "#/components/responses/Problem" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": { "session": { "type": "apiKey", "in": "cookie", "name": "collab_session" } },
+    "schemas": {
+      "ProjectMetric": {
+        "type": "object",
+        "required": ["projectId", "projectKey", "projectName", "projectStatus", "projectCreatedAt", "taskCount", "completedTaskCount", "cancelledTaskCount", "effectiveTaskCount", "openTaskCount", "completionRate", "overdueTaskCount", "overdueRate"],
+        "properties": {
+          "projectId": { "type": "string" }, "projectKey": { "type": "string" }, "projectName": { "type": "string" },
+          "projectStatus": { "type": "string", "enum": ["planning", "active", "on_hold", "completed", "cancelled", "archived"] }, "projectCreatedAt": { "type": "string", "format": "date-time" },
+          "taskCount": { "type": "integer" }, "completedTaskCount": { "type": "integer" }, "cancelledTaskCount": { "type": "integer" },
+          "effectiveTaskCount": { "type": "integer" }, "openTaskCount": { "type": "integer" }, "completionRate": { "type": "number" },
+          "overdueTaskCount": { "type": "integer" }, "overdueRate": { "type": "number" }
+        }
+      },
+      "OverdueTask": {
+        "type": "object",
+        "required": ["taskId", "taskKey", "title", "dueDate", "projectId", "projectKey", "projectName"],
+        "properties": {
+          "taskId": { "type": "string" }, "taskKey": { "type": "string" }, "title": { "type": "string" },
+          "dueDate": { "type": "string", "format": "date" }, "projectId": { "type": "string" },
+          "projectKey": { "type": "string" }, "projectName": { "type": "string" }
+        }
+      },
+      "Problem": { "type": "object", "properties": { "type": { "type": "string" }, "title": { "type": "string" }, "status": { "type": "integer" }, "detail": { "type": "string" } } }
+    },
+    "responses": {
+      "ProjectCompletionReport": {
+        "description": "项目完成与逾期任务当前快照。",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object", "required": ["data"],
+              "properties": {
+                "data": {
+                  "type": "object",
+                  "required": ["generatedAt", "timezone", "overdueAsOfLocalDate", "temporalSemantics", "filter", "projects", "totals", "overdueTasks", "overdueMeta"],
+                  "properties": {
+                    "generatedAt": { "type": "string", "format": "date-time" }, "timezone": { "type": "string" }, "overdueAsOfLocalDate": { "type": "string", "format": "date" },
+                    "temporalSemantics": { "type": "string", "const": "current_snapshot_filtered_by_project_creation_time" },
+                    "filter": { "type": "object", "properties": { "projectId": { "type": "string" }, "createdFrom": { "type": "string", "format": "date-time" }, "createdTo": { "type": "string", "format": "date-time" }, "overduePage": { "type": "integer" }, "overduePageSize": { "type": "integer" } } },
+                    "projects": { "type": "array", "items": { "$ref": "#/components/schemas/ProjectMetric" } },
+                    "overdueTasks": { "type": "array", "items": { "$ref": "#/components/schemas/OverdueTask" } },
+                    "overdueMeta": { "type": "object", "required": ["page", "pageSize", "total"], "properties": { "page": { "type": "integer" }, "pageSize": { "type": "integer" }, "total": { "type": "integer" } } },
+                    "totals": { "type": "object", "required": ["projectCount", "taskCount", "completedTaskCount", "cancelledTaskCount", "effectiveTaskCount", "openTaskCount", "completionRate", "overdueTaskCount", "overdueRate"], "properties": { "projectCount": { "type": "integer" }, "taskCount": { "type": "integer" }, "completedTaskCount": { "type": "integer" }, "cancelledTaskCount": { "type": "integer" }, "effectiveTaskCount": { "type": "integer" }, "openTaskCount": { "type": "integer" }, "completionRate": { "type": "number" }, "overdueTaskCount": { "type": "integer" }, "overdueRate": { "type": "number" } } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Problem": { "description": "RFC 7807 problem response.", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/Problem" } } }
+    }
+  }
+}

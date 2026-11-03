@@ -7,6 +7,12 @@
 > 替代文档：`database-design.md`（SQL/Prisma 版，已废止）  
 > 关联：[数据模型图](data-model-diagram.md)、[嵌入式存储评估](../05-research/embedded-storage-evaluation.md)、[系统架构](system-architecture.md)
 
+> 文档正文索引：`document_texts` 仅保留当前版本的已提取 UTF-8 TXT/MD/CSV（每份最多 1MiB）、来源版本 ID 和 SHA-256；它是从受校验文件重建的派生数据，不是文件内容的唯一来源。二进制与超限文件不创建正文索引，全文检索仍须在 ACL 过滤后执行。
+
+> Bootstrap 开发检查使用 `bootstrap_records` 命名子库，保存独立的 JSON 测试记录，经 Repository 读写；它不是业务实体。`pnpm dev` 的默认开发数据目录及隔离测试说明见 [README](../../README.md#windows-bootstrap-启动)。
+
+> 2026-11-02：用户登录标识采用内部账号。为不迁移已有数据，当前用户及登录记录仍沿用 `email` 存储字段和 `idx_users_email` 唯一索引；该字段可存内部账号，历史邮箱格式标识继续可登录。新账号统一小写，组织内唯一。
+
 ## 1. 结论先行
 
 1. 本项目**不使用 SQL 数据库、SQL ORM、独立数据库服务、Docker**。
@@ -16,7 +22,7 @@
 5. 多记录关键写操作（申请提交、审批、任务编号、审计、文件元数据）必须在**同一 LMDB 写事务**内完成。
 6. 审批记录、审计日志、登录记录只追加；不提供 UPDATE/DELETE API。
 7. 文件与 KV 无法共享事务，采用“文件先落盘 + 元数据事务 + 失败补偿 + 启动对账”的协议。
-8. 正式项目依赖尚未安装；存储选型以 [嵌入式存储评估](../05-research/embedded-storage-evaluation.md) 的原型结果为依据，待人工确认后固化。
+8. 正式项目依赖已按 `pnpm-lock.yaml` 冻结安装；存储选型为 `lmdb@3.5.9`，并已在当前 Windows/Node 24 环境完成加载与工程检查。
 
 ## 2. 设计目标与边界
 
@@ -81,9 +87,9 @@ flowchart TB
 ```text
 EnterprisePlatform/
 ├─ app/
-│  ├─ frontend/                 # 构建后的 SPA（dist）
-│  ├─ backend/                  # Node/Fastify 构建产物
-│  └─ shared/                   # 共享契约（构建产物/类型）
+│  ├─ frontend/dist/            # 构建后的 SPA
+│  ├─ backend/dist/             # Node/Fastify 构建产物
+│  └─ shared/dist/              # 共享契约（构建产物/类型）
 ├─ data/
 │  ├─ config/
 │  │  └─ platform.json          # 非敏感配置（端口、时区、目录、限制）
@@ -178,6 +184,7 @@ interface UnitOfWork {
 - `LmdbStorageEngine` 是唯一实现；未来可替换为其他 KV/文档存储，但必须保持事务/索引语义。
 - `StoreName`、`IndexName`、`SchemaRegistry` 由存储层统一维护；业务模块不得自行 `open()` 子库。
 - 测试可注入临时目录的 `LmdbStorageEngine`，不 mock 存储引擎（除纯策略单测）。
+- `range()` 的显式 `limit` 只用于有意的有界分页；未提供 `limit` 时表示完整范围扫描，超过存储层安全上限必须抛错，不得静默返回截断结果。依赖完整清单做文件对账、校验或迁移的调用方必须在异常时 fail-closed；容量扩展应采用稳定游标分页并保留完整性证据。
 
 ### 6.2 仓储职责
 
@@ -288,7 +295,7 @@ joinKey('task', projectId, status, pad12(boardOrder), taskId)
 
 | 字段 | 类型 | 规则 |
 |---|---|---|
-| `email` | string | 小写、trim；唯一 |
+| `email` | string | 内部账号，保留旧字段名；小写、trim、唯一；历史邮箱格式可读 |
 | `passwordHash` | string | Argon2id |
 | `name` | string | 2–80 |
 | `avatarFileId` | string? | ref: files |
@@ -383,6 +390,8 @@ joinKey('task', projectId, status, pad12(boardOrder), taskId)
 | `sortOrder` | number | ≥0 |
 
 最大深度 10；删除前检查子部门/员工/引用。
+
+当前部门服务实现创建、完整字段更新和全范围读取，写入时事务内重验身份、会话、权限与该权限对应角色的 `all` 范围；较窄范围过滤尚未实现，默认拒绝。跨模块引用检查尚不完整，因此部门删除接口尚未开放。父级变更校验整棵子树，拒绝循环及超过 10 层；负责人必须是活跃用户。部门数据和审计在同一事务提交。
 
 #### positions
 
@@ -561,6 +570,10 @@ joinKey('task', projectId, status, pad12(boardOrder), taskId)
 
 只追加；不提供更新/删除；每步最多一条 approve/reject（唯一索引），每实例最多一条 withdraw。
 
+审批仓储的唯一索引包括实例申请、实例步骤序号与唯一 active 步骤、记录序号/决策/撤回、活动模板类型、模板版本号、幂等用户键及日期计数。`storage:verify` 根据主记录检查其 schema、索引与每实例 SHA-256 哈希链及链头；`storage:rebuild-indexes` 在维护事务内先完成全部主记录、关系和唯一性预检，并生成完整的预期索引集合；仅当所有预检通过后才清空并重建索引。维护命令不会重写审批历史、审计链、文件业务引用或 `refCount`，任何不一致均失败关闭。
+
+`notifications`、`counters`、`idempotency` 共用 [共享记录契约](../../app/backend/src/modules/core/shared-records.ts)：各模块复用同一 registry/engine 的仓储实例，新增记录必须填写业务 `namespace`；旧的无 namespace 审批记录按 `approvals` 处理并保留原索引键。不同业务域的计数器和幂等键使用带 namespace 的复合键。历史字段名 `workflow_counter`、`workflow_idempotency`、`date`、`applicationId` 暂时保留以兼容当前实验记录，其他域分别将后两者作为业务计数周期键与响应资源标识使用；任何正式数据或未知旧格式不自动迁移。共享仓储本身不提供授权过滤，业务接口必须按资源和 namespace 守卫。原始数字计数器仅在隔离崩溃测试中出现，不属于此文档契约；检验/重建遇到未知格式会失败关闭。
+
 ### 10.5 Document
 
 #### documents
@@ -733,9 +746,9 @@ joinKey('task', projectId, status, pad12(boardOrder), taskId)
 | roles | `idx_roles_code` | code | ✅ | 角色查找 |
 | login_records | `idx_login_time` | createdAt\u001Fid | ❌ | 审计查询 |
 | login_records | `idx_login_user` | userId\u001FcreatedAt\u001Fid | ❌ | 用户登录史 |
-| departments | `idx_departments_parent_name` | parentId\u001Fname | ✅ | 同级唯一 |
+| departments | `idx_departments_parent_name` | `JSON.stringify([parentId, name])` | ✅ | 同级唯一，根节点 parentId 为 null |
 | departments | `idx_departments_code` | code | ✅ | 编码唯一 |
-| departments | `idx_departments_manager` | managerId\u001FdepartmentId | ❌ | 负责人查询 |
+| departments | `idx_departments_manager` | managerId\u001FdepartmentId | ❌ | 负责人查询（规划，尚未实现） |
 | positions | `idx_positions_code` | code | ✅ | 唯一 |
 | positions | `idx_positions_name` | name | ✅ | 唯一 |
 | projects | `idx_projects_key` | key | ✅ | 短键唯一 |
@@ -894,7 +907,8 @@ meta.auditLastHash = hash
 
 - 临时：`data/tmp/<uploadId>.part`
 - 最终：`data/files/<sha256前2位>/<sha256>`
-- 回收：`data/trash/<timestamp>/<sha256>`
+- 零引用文件回收：`data/trash/files/<epochMillis>/<sha256>-<randomId>`
+- 对账隔离：孤儿文件放入 `data/trash/orphan/<epochMillis>/...`；超时临时上传放入 `data/trash/pending/<epochMillis>/...`
 - 数据库只存 `storageKey`（相对路径）与 `sha256`，不存绝对路径。
 - 文件名只用于展示；不参与路径。
 
@@ -923,7 +937,7 @@ meta.auditLastHash = hash
 ### 15.4 删除
 
 - 文档软删除：`deletedAt` + 移除索引；文件 refCount -1。
-- refCount 为 0 时移入 `trash`，保留 7 天；清理任务删除。
+- refCount 为 0 时移入 `trash/files/<epochMillis>/`，保留 7 天；启动清理只删除受管类别下时间戳目录已满 7 天的内容，无法识别的目录保留。
 - 启动/定时 `reconcileFiles`：
   - active 元数据但文件缺失 → 标记 missing + 告警。
   - 物理文件无 active 元数据 → 移入 trash。
@@ -934,6 +948,7 @@ meta.auditLastHash = hash
 
 - `meta.schemaVersion`：全局数据 schema 版本。
 - 每个文档 `schemaVersion`：实体 schema 版本。
+- 正常启动只接受数值类型的安全整数版本；非法、旧版、高版本均拒绝并关闭句柄。仅真正空库可初始化当前版本；已有实体/元数据却缺少版本时保留现场，不自动标记为当前版本。维护入口 `allowSchemaMismatch` 只供显式检查原版本，不改写它；回归见 `app/backend/test/storage-schema.test.ts`。
 - 迁移在应用停止/维护模式下执行：
   1. 停止进程，检查磁盘空间；
   2. 运行迁移（分块事务，记录 `migrationState`）；
@@ -1017,6 +1032,7 @@ R1 明确不建设备份系统：
   - 索引重建、损坏检测、文件对账。
   - Schema 迁移、回滚/恢复。
 - API 集成使用真实 LMDB 临时目录，不用 mock。
+- `app/backend/test/storage-recovery.test.ts` 在同一隔离数据目录执行三轮确定性事务中途强杀，逐轮读取已提交 task/document 存储记录、计数、审计链及关联文件字节。该 fixture 是存储一致性探针，不代替文档业务模块或长时压力验收。
 - 每个关键写用例断言：文档、索引、审计、通知一致。
 - 性能测试：50k/100k 数据、工作台、看板。
 - 详细见 [测试策略](../04-development/testing-strategy.md)。
@@ -1059,3 +1075,13 @@ R1 明确不建设备份系统：
 
 
 
+
+### 项目与任务当前实现说明（2026-11-02）
+
+本节 10.3 是目标模型。当前 `projects` 实际包含 `name`、`key`、`description`、`visibility`、`status`、`statusReason`、`ownerId`、`taskSeq`、`startDate`、`dueDate` 和通用信封；不含 `completedAt`/`archivedAt`。`project_members` 使用 UUID 主键及字符串 `membershipKey = projectId + ":" + userId` 的唯一索引，实际角色字段为 `role`；暂未存储 `addedBy/joinedAt/lastViewedAt`。`tasks` 实际包含 `projectId`、`taskNo`、`taskKey`、`title`、`description`、`status`、`progress`、`priority`、`assigneeId`、`createdBy`、`startDate`、`dueDate`、`completedAt` 及信封；任务看板排序字段 `boardOrder` 为可选整数，旧文档缺字段时按 0、创建时间及 ID 排序；移动时写入列排序。项目名称当前校验范围为 2–120 字。
+
+唯一索引：`idx_projects_key`、`idx_project_members_key`、`idx_tasks_key`；非唯一索引：`idx_projects_visibility`、`idx_projects_owner`、`idx_project_members_user`、`idx_project_members_project`、`idx_tasks_project`。维护命令在隔离环境中应验证及重建这些索引；索引不能作为停用 owner 安全判断的唯一数据来源。项目与任务实现仍为进行中的业务切片，并不改变 M0 验收结论。
+
+短键历史唯一性还通过仓储对项目主库（含软删除文档）的事务内检查保证；软删除后仍占用短键。索引覆盖活跃项目，不能单独证明短键从未使用过；超过范围扫描上限时失败而非放行。
+
+评论保存在 `task_comments` 文档库，使用 `taskId`、`authorId`、`content`、`editedAt`、`removedAt` 和信封；目前无独立索引，按主库筛选，存储校验及重建前检查 schema。评论删除为保留记录的占位更新（内容清空、设置 removedAt），不触发物理删除；任务删除后评论不可访问。
